@@ -15,6 +15,7 @@ Sym-based verification condition generator over the `Std.Internal.Do` metatheory
 | `StackMachine` | compiler correctness | induction with `vcgen` per case, IHs as spec lemmas, no-underflow for free from the `⊥` epost |
 | `HasDup` | duplicate detection | `Std.HashSet` in the loop state, closed by the library's grind API |
 | `HumanEval3` | `below_zero` from human-eval-lean | replaces the upstream `HasPrefix` theory with a 3-line spec predicate |
+| `HumanEval114` | `minSubArraySum` (Kadane) from human-eval-lean | one-equation loop invariant over a structurally recursive `afrom`; replaces the upstream append-direction preservation lemmas |
 
 `FindIndex.Manual` is the honest baseline: the same theorem proved against the raw
 `forIn` desugaring takes a start-offset-generalized induction over `List.range'`,
