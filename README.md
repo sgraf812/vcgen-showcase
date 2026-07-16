@@ -19,6 +19,7 @@ Sym-based verification condition generator over the `Std.Internal.Do` metatheory
 | `Rollback` | transactional all-or-nothing ledger | `try`/`catch`, exact exception postconditions (`epost` characterizes when `processAll` throws), spec shadowing via `-applyTx_spec` |
 | `TwoSum` | two-pointer search on a sorted array | early return from `while`, exclusion invariant, variant; baseline needs the `wrap`/`with_unfolding_all` recipe against matcher identity |
 | `DutchFlag` | in-place three-way partition | `Array.swapIfInBounds` mutation, zone invariant plus permutation, variant; baseline shows grind-granularity as a load-bearing choice |
+| `FindPair` | first pair summing to a target | nested loops, `return` through both, one invariant per loop with the outer cursor in scope; baseline needs the elaborator's own matcher constant |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
