@@ -26,6 +26,8 @@ error) and the successful step (the same stitch on the `ok` side).
 
 open Std.Internal.Do Lean.Order
 
+namespace Transfer
+
 set_option mvcgen.warning false
 set_option grind.warning false
 set_option linter.unusedVariables false
@@ -136,18 +138,21 @@ theorem transferAllAtomic_spec (txs : List Tx) (b : Bank) :
     have h2 : applyTx s1 cur = .ok s0 := by rw [← applyTx_eta]; exact hok
     grind
 
-/-! Sanity tests. `native_decide`: `HashMap` internals do not reduce in the kernel. -/
-private def bank0 : Bank := Std.HashMap.ofList [("alice", 100), ("bob", 10)]
+end Transfer
 
-example : (((transferAllAtomic [("alice", "bob", 30)]).run.run bank0).run.1.toOption)
+/-! Sanity tests. `native_decide`: `HashMap` internals do not reduce in the kernel. -/
+open Transfer in
+private def bank0 : Transfer.Bank := Std.HashMap.ofList [("alice", 100), ("bob", 10)]
+
+example : (((Transfer.transferAllAtomic [("alice", "bob", 30)]).run.run bank0).run.1.toOption)
     = some true := by native_decide
-example : ((((transferAllAtomic [("alice", "bob", 30)]).run.run bank0).run.2).getD "alice" 0)
+example : ((((Transfer.transferAllAtomic [("alice", "bob", 30)]).run.run bank0).run.2).getD "alice" 0)
     = 70 := by native_decide
-example : ((((transferAllAtomic [("alice", "bob", 30)]).run.run bank0).run.2).getD "bob" 0)
+example : ((((Transfer.transferAllAtomic [("alice", "bob", 30)]).run.run bank0).run.2).getD "bob" 0)
     = 40 := by native_decide
-example : (((transferAllAtomic [("alice", "bob", 30), ("bob", "alice", 500)]).run.run
+example : (((Transfer.transferAllAtomic [("alice", "bob", 30), ("bob", "alice", 500)]).run.run
     bank0).run.1.toOption) = some false := by native_decide
-example : ((((transferAllAtomic [("alice", "bob", 30), ("bob", "alice", 500)]).run.run
+example : ((((Transfer.transferAllAtomic [("alice", "bob", 30), ("bob", "alice", 500)]).run.run
     bank0).run.2).getD "alice" 0) = 100 := by native_decide
-example : ((((transferAllAtomic [("carol", "bob", 1)]).run.run bank0).run.2).getD "bob" 0)
+example : ((((Transfer.transferAllAtomic [("carol", "bob", 1)]).run.run bank0).run.2).getD "bob" 0)
     = 10 := by native_decide
