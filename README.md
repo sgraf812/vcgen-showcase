@@ -43,6 +43,7 @@ definitions are adapted from [human-eval-lean](https://github.com/leanprover/hum
 | `InsertionSort` | in-place insertion sort | `while` in `for`, swaps, full sorted-plus-permutation spec; one VC survives `finish` and is closed by a named `case` |
 | `Balanced` | bracket matching | early return over `s.toList`; documents the direct-`String`-iteration spike (supported by `Spec.forIn_string`, blocked on a missing `Splits` grind-kit) |
 | `Parser` | recursive-descent parser for `+`/`*`/parens arithmetic, and the parse-compile-execute pipeline | fuel-indexed mutual recursion over `ExceptT`/`StateM`, canonical `takeWhile` specs, print-parse round trip with `vcgen`-proved composition cores, pure extraction via `le_wp`, end-to-end `evalString` correctness against `StackMachine` |
+| `Heap` | binary min-heap (insert, extract-min) and heapsort | sift-up/down loop invariants over `getElem!`, division-free `parent` grind kit, multiset model via `Array.Perm`; heapsort proved purely against the registered `@[spec]` triples of the heap operations |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
