@@ -1,6 +1,7 @@
 import Std.Internal.Do
 import Std.Tactic.Do
 import Init.Internal.Order.While
+import VcgenShowcase.ManualLoop
 
 /-!
 # Two-sum on a sorted array
@@ -74,27 +75,6 @@ theorem twoSum_spec (a : Array Int) (t : Int) (hs : Sorted a) :
 namespace Manual
 
 set_option linter.unusedVariables false
-
-/-- The `ForInStep` wrapper that `Lean.Loop.forIn` builds around a `while` body. A named
-function so that downstream statements never spell its `match` inline. -/
-def wrap {β : Type} (f : Unit → β → Id (ForInStep β)) (b : β) : Id (β ⊕ β) :=
-  match (f () b : Id (ForInStep β)) with
-  | .done b' => pure (Sum.inr b')
-  | .yield b' => pure (Sum.inl b')
-
-theorem wrap_done {β : Type} {f : Unit → β → Id (ForInStep β)} {b b' : β}
-    (h : f () b = pure (ForInStep.done b')) : wrap f b = pure (Sum.inr b') := by
-  simp only [wrap, h]; rfl
-
-theorem wrap_yield {β : Type} {f : Unit → β → Id (ForInStep β)} {b b' : β}
-    (h : f () b = pure (ForInStep.yield b')) : wrap f b = pure (Sum.inl b') := by
-  simp only [wrap, h]; rfl
-
-/-- `while` loops are `repeatM` of the wrapped body. `with_unfolding_all` crosses the
-auxiliary-matcher identity between `wrap` and the copy inside `Lean.Loop.forIn`. -/
-theorem loop_forIn_eq {β : Type} [Nonempty β] (init : β) (f : Unit → β → Id (ForInStep β)) :
-    forIn (m := Id) Lean.Loop.mk init f = repeatM (m := Id) (wrap f) init := by
-  with_unfolding_all rfl
 
 private theorem loop_aux (a : Array Int) (t : Int)
     (hs : ∀ i j, i ≤ j → j < a.size → a[i]! ≤ a[j]!)

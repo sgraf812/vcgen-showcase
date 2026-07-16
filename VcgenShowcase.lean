@@ -7,3 +7,5 @@ import VcgenShowcase.HumanEval3
 import VcgenShowcase.HumanEval114
 import VcgenShowcase.Rollback
 import VcgenShowcase.TwoSum
+import VcgenShowcase.ManualLoop
+import VcgenShowcase.DutchFlag

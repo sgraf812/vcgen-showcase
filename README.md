@@ -18,6 +18,7 @@ Sym-based verification condition generator over the `Std.Internal.Do` metatheory
 | `HumanEval114` | `minSubArraySum` (Kadane) from human-eval-lean | one-equation loop invariant over a structurally recursive `afrom`; replaces the upstream append-direction preservation lemmas |
 | `Rollback` | transactional all-or-nothing ledger | `try`/`catch`, exact exception postconditions (`epost` characterizes when `processAll` throws), spec shadowing via `-applyTx_spec` |
 | `TwoSum` | two-pointer search on a sorted array | early return from `while`, exclusion invariant, variant; baseline needs the `wrap`/`with_unfolding_all` recipe against matcher identity |
+| `DutchFlag` | in-place three-way partition | `Array.swapIfInBounds` mutation, zone invariant plus permutation, variant; baseline shows grind-granularity as a load-bearing choice |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
