@@ -42,6 +42,7 @@ definitions are adapted from [human-eval-lean](https://github.com/leanprover/hum
 | `FindPair` | first pair summing to a target | nested loops, `return` through both, one invariant per loop; full first-ness spec via two seeded `range'`-split rules; baseline needs the elaborator's own matcher constant |
 | `InsertionSort` | in-place insertion sort | `while` in `for`, swaps, full sorted-plus-permutation spec; one VC survives `finish` and is closed by a named `case` |
 | `Balanced` | bracket matching | early return over `s.toList`; documents the direct-`String`-iteration spike (supported by `Spec.forIn_string`, blocked on a missing `Splits` grind-kit) |
+| `Parser` | recursive-descent parser for `+`/`*`/parens arithmetic, and the parse-compile-execute pipeline | fuel-indexed mutual recursion over `ExceptT`/`StateM`, canonical `takeWhile` specs, print-parse round trip with `vcgen`-proved composition cores, pure extraction via `le_wp`, end-to-end `evalString` correctness against `StackMachine` |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
