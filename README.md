@@ -21,6 +21,7 @@ Sym-based verification condition generator over the `Std.Internal.Do` metatheory
 | `DutchFlag` | in-place three-way partition | `Array.swapIfInBounds` mutation, zone invariant plus permutation, variant; baseline shows grind-granularity as a load-bearing choice |
 | `FindPair` | first pair summing to a target | nested loops, `return` through both, one invariant per loop with the outer cursor in scope; baseline needs the elaborator's own matcher constant |
 | `InsertionSort` | in-place insertion sort | `while` in `for`, swaps, full sorted-plus-permutation spec; one VC survives `finish` and is closed by a named `case` |
+| `Balanced` | bracket matching | early return over `s.toList`; documents the direct-`String`-iteration spike (supported by `Spec.forIn_string`, blocked on a missing `Splits` grind-kit) |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API

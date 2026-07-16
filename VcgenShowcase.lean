@@ -11,3 +11,4 @@ import VcgenShowcase.ManualLoop
 import VcgenShowcase.DutchFlag
 import VcgenShowcase.FindPair
 import VcgenShowcase.InsertionSort
+import VcgenShowcase.Balanced
