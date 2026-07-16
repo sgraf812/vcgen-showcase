@@ -165,3 +165,16 @@ example : (((atomically [.deposit 5, .withdraw 20]).run.run 10).run
     : Except String Unit × Int) = (.ok (), 10) := by cbv
 example : (((atomically [.deposit 5, .withdraw 3]).run.run 10).run
     : Except String Unit × Int) = (.ok (), 12) := by cbv
+example : (((atomically []).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 10) := by cbv
+example : (((atomically [.withdraw 10]).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 0) := by cbv
+example : (((atomically [.deposit 5, .withdraw 100, .deposit 999]).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 10) := by cbv
+
+/- `Overdraws` is prefix-sensitive: the same multiset of transactions succeeds or
+rolls back depending on order. -/
+example : (((atomically [.withdraw 15, .deposit 10]).run.run 5).run
+    : Except String Unit × Int) = (.ok (), 5) := by cbv
+example : (((atomically [.deposit 10, .withdraw 15]).run.run 5).run
+    : Except String Unit × Int) = (.ok (), 0) := by cbv

@@ -84,3 +84,11 @@ theorem insertionSort_spec (a : Array Int) :
 -- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
 example : (insertionSort #[3, 1, 2]).run = #[1, 2, 3] := by native_decide
 example : (insertionSort #[5, 4, 3, 2, 1]).run = #[1, 2, 3, 4, 5] := by native_decide
+example : (insertionSort #[]).run = #[] := by native_decide
+example : (insertionSort #[7]).run = #[7] := by native_decide
+example : (insertionSort #[1, 2, 3]).run = #[1, 2, 3] := by native_decide
+example : (insertionSort #[2, 1, 2, 1]).run = #[1, 1, 2, 2] := by native_decide
+example : (insertionSort #[0, -5, 3, -5]).run = #[-5, -5, 0, 3] := by native_decide
+
+example : (insertionSort #[3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]).run =
+    #[1, 1, 2, 3, 3, 4, 5, 5, 5, 6, 9] := by native_decide

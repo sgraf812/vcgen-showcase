@@ -125,3 +125,8 @@ end Manual
 -- `native_decide`: `Std.HashSet` internals do not reduce in the kernel.
 example : (hasDup [1, 2, 1]).run = true := by native_decide
 example : (hasDup [1, 2, 3]).run = false := by native_decide
+example : (hasDup []).run = false := by native_decide
+example : (hasDup [7]).run = false := by native_decide
+example : (hasDup [2, 2]).run = true := by native_decide
+example : (hasDup [1, 2, 3, 4, 5, 3]).run = true := by native_decide
+example : (hasDup [-1, 1]).run = false := by native_decide

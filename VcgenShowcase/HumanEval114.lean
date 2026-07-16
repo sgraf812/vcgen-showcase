@@ -291,3 +291,7 @@ theorem isMinSubarraySum_minSubarraySum (xs : Array Int) :
   · exact isMinSubarraySum_of_nonneg h₀ (by grind [afrom_nonpos])
 
 end Manual
+example : minSubarraySum #[] = 0 := by decide
+
+/- The minimum is a strictly interior, multi-element subarray. -/
+example : minSubarraySum #[5, -3, -4, 2, -1, 6] = -7 := by decide

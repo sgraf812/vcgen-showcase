@@ -152,3 +152,6 @@ end Manual
 /-! Sanity tests. -/
 example : (findIdx #[5, 3, 7, 3] 3).run = some 1 := by cbv
 example : (findIdx #[5, 3, 7] 9).run = none := by cbv
+example : (findIdx #[3, 3, 3] 3).run = some 0 := by cbv
+example : (findIdx #[] 3).run = none := by cbv
+example : (findIdx #[5, 3, 7] 7).run = some 2 := by cbv

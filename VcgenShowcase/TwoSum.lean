@@ -178,3 +178,14 @@ end Manual
 -- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
 example : (twoSum #[1, 2, 3, 4] 7).run = some (2, 3) := by native_decide
 example : (twoSum #[1, 2, 3, 4] 42).run = none := by native_decide
+example : (twoSum #[] 5).run = none := by native_decide
+example : (twoSum #[5] 5).run = none := by native_decide
+example : (twoSum #[3, 3] 6).run = some (0, 1) := by native_decide
+example : (twoSum #[1, 2, 3, 4] 3).run = some (0, 1) := by native_decide
+example : (twoSum #[-3, 1, 2] (-1)).run = some (0, 2) := by native_decide
+
+/- With duplicate values there are two valid pairs; the two-pointer scan returns the
+lexicographically later one `(0, 2)`, and that is fine: this spec pins existence and
+validity, not which pair. `FindPair` returns `(0, 1)` on the same input and proves
+it must. -/
+example : (twoSum #[3, 4, 4] 7).run = some (0, 2) := by native_decide

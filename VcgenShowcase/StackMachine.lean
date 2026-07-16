@@ -142,3 +142,17 @@ end Manual
 /-! Sanity tests. -/
 example : (((exec (Expr.compile (.add (.num 2) (.mul (.num 3) (.num 4))))).run.run []).run
     : Except String Unit × List Int) = (.ok (), [14]) := by cbv
+example : (((exec (Expr.compile (.num 7))).run.run []).run
+    : Except String Unit × List Int) = (.ok (), [7]) := by cbv
+example : (((exec (Expr.compile (.mul (.add (.num 1) (.num 2)) (.num 5)))).run.run []).run
+    : Except String Unit × List Int) = (.ok (), [15]) := by cbv
+example : (((exec [Instr.add]).run.run []).run
+    : Except String Unit × List Int).1 = .error "stack underflow" := by cbv
+
+/- The machine is not only a compilation target: hand-written programs run too. -/
+example : (((exec [.push 1, .push 2, .add, .push 3, .mul]).run.run []).run
+    : Except String Unit × List Int) = (.ok (), [9]) := by cbv
+
+/- The compiler emits postfix order. -/
+example : Expr.compile (.add (.num 1) (.mul (.num 2) (.num 3))) =
+    [.push 1, .push 2, .push 3, .mul, .add] := by cbv

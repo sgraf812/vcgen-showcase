@@ -99,3 +99,14 @@ end Manual
 -- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
 example : (isqrt 10).run = 3 := by native_decide
 example : (isqrt 16).run = 4 := by native_decide
+example : (isqrt 0).run = 0 := by native_decide
+example : (isqrt 1).run = 1 := by native_decide
+example : (isqrt 3).run = 1 := by native_decide
+example : (isqrt 15).run = 3 := by native_decide
+example : (isqrt 99).run = 9 := by native_decide
+example : (isqrt 100).run = 10 := by native_decide
+
+/- Ten billion is a perfect square; the linear search runs 100000 iterations, which
+native evaluation absorbs without noticing. -/
+example : (isqrt 10000000000).run = 100000 := by native_decide
+example : (isqrt 9999999999).run = 99999 := by native_decide

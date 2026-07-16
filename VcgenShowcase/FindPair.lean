@@ -272,3 +272,11 @@ end Manual
 /-! Sanity tests. -/
 example : (findPair #[1, 2, 3, 4] 5).run = some (0, 3) := by cbv
 example : (findPair #[1, 2, 3, 4] 42).run = none := by cbv
+example : (findPair #[1, 4, 3, 2] 5).run = some (0, 1) := by cbv
+example : (findPair #[1, 9, 4, 4] 5).run = some (0, 2) := by cbv
+example : (findPair #[] 0).run = none := by cbv
+example : (findPair #[5] 5).run = none := by cbv
+
+/- The counterpart to the `TwoSum` test on the same input: first-ness forces `(0, 1)`
+where the two-pointer scan returns `(0, 2)`. -/
+example : (findPair #[3, 4, 4] 7).run = some (0, 1) := by cbv

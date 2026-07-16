@@ -171,3 +171,6 @@ end Manual
 /-! Sanity tests. -/
 example : belowZero [1, 2, -4, 5] = true := by cbv
 example : belowZero [1, 2, 3] = false := by cbv
+example : belowZero [] = false := by cbv
+example : belowZero [-1] = true := by cbv
+example : belowZero [1, -1] = false := by cbv

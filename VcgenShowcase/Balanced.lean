@@ -67,3 +67,15 @@ theorem balanced_spec (s : String) :
 example : (balanced "(a(b)c)").run = true := by cbv
 example : (balanced "(()").run = false := by cbv
 example : (balanced ")(").run = false := by cbv
+example : (balanced "").run = true := by cbv
+example : (balanced "no brackets").run = true := by cbv
+example : (balanced "((()))").run = true := by cbv
+example : (balanced "())(").run = false := by cbv
+example : (balanced "(λ→(x))").run = true := by cbv
+
+/- Only ASCII parentheses count as brackets: fullwidth `（` is an ordinary character. -/
+example : (balanced "（").run = true := by cbv
+example : (balanced "(（)").run = true := by cbv
+
+/- A surplus of opens is only detected at the end, never by the early return. -/
+example : (balanced "(()((").run = false := by cbv

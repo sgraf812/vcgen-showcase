@@ -213,3 +213,8 @@ end Manual
 /-! Sanity tests. -/
 -- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
 example : (dutchFlag #[1, -2, 0, 3, -1]).run = #[-1, -2, 0, 3, 1] := by native_decide
+example : (dutchFlag #[]).run = #[] := by native_decide
+example : (dutchFlag #[-1, 0, 1]).run = #[-1, 0, 1] := by native_decide
+example : (dutchFlag #[1, 1, 1]).run = #[1, 1, 1] := by native_decide
+example : (dutchFlag #[-1, -1]).run = #[-1, -1] := by native_decide
+example : (dutchFlag #[1, 0, -1]).run = #[-1, 0, 1] := by native_decide

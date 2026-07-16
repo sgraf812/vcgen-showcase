@@ -158,3 +158,15 @@ example : (((processAll [.deposit 5, .withdraw 3]).run.run 10).run
     : Except String Unit × Int) = (.ok (), 12) := by cbv
 example : (((processAll [.withdraw 20]).run.run 10).run
     : Except String Unit × Int).1 = .error "insufficient funds" := by cbv
+example : (((processAll []).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 10) := by cbv
+example : (((processAll [.withdraw 10]).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 0) := by cbv
+example : (((processAll [.withdraw 11]).run.run 10).run
+    : Except String Unit × Int).1 = .error "insufficient funds" := by cbv
+example : (((processAll [.deposit 5, .withdraw 100, .deposit 999]).run.run 10).run
+    : Except String Unit × Int) = (.error "insufficient funds", 15) := by cbv
+
+/- Dipping to exactly zero is not an overdraft. -/
+example : (((processAll [.withdraw 10, .deposit 100, .withdraw 90]).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 10) := by cbv
