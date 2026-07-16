@@ -1,25 +1,30 @@
 import Std.Internal.Do
 import Std.Tactic.Do
+import VcgenShowcase.RangeSplit
 
 /-!
-# A pair summing to a target, by nested loops
+# First pair summing to a target, by nested loops
 
-Brute-force search over all index pairs `i < j`, with the `return` exiting both loops.
-The spec pins the result to a valid pair or certifies that none exists; it does not
-pin which pair is returned.
+Brute-force search over all index pairs `i < j`, with the `return` exiting both
+loops. The spec pins the result completely: the returned pair is valid and
+lexicographically least among all valid pairs, and `none` certifies that no valid
+pair exists.
 
 The `vcgen` proof supplies one invariant per loop; the inner one (`inv2`) has the
-outer cursor and the outer invariant in scope. The inner invariant tracks the
-already-scanned partners of the current `i` by membership in the inner prefix:
-position arithmetic for the inner range (which starts at `i + 1`) is not derivable by
-e-matching, while membership extends by exactly the split element at each step and
-converts to bounds once, at the loop exit.
+outer cursor and the outer invariant in scope. First-ness needs the loop positions:
+two seeded rules over the cursor split `List.range' s n = pref ++ c :: suff` give
+the split element's position (`range'_split_pos`) and the prefix as an interval
+(`range'_split_mem_prefix`); both trigger on the split, so `finish` converts between
+"scanned so far" and index bounds in either direction.
 
-`Manual.findPair_correct` is the same-base baseline. Places to get stuck, beyond the
-single-loop ones:
+`Manual.findPair_correct` is the same-base baseline for the same statement. Places
+to get stuck, beyond the single-loop ones:
 
 1. Two loops mean two aux lemmas, and the outer statement embeds the inner loop
-   verbatim, so both programs are spelled in every conjunct.
+   verbatim, so both programs are spelled in every conjunct. First-ness makes the
+   split positions part of the statements: each aux returns the consumed prefix as
+   a list split, and the main theorem converts splits to index bounds by hand with
+   the same two `range'` rules.
 2. The desugaring inserts a result-propagation `match` after the inner loop. Its
    auxiliary matcher can be neither replicated (a fresh matcher per declaration; the
    matcher cache misses) nor crossed by definitional equality at any transparency.
@@ -36,7 +41,7 @@ open Std.Internal.Do Lean.Order
 set_option mvcgen.warning false
 set_option grind.warning false
 
-/-- A pair of indices whose elements sum to `target`, if one exists. -/
+/-- The first pair of indices, in lexicographic order, whose elements sum to `target`. -/
 def findPair (a : Array Int) (target : Int) : Id (Option (Nat × Nat)) := do
   for i in [0:a.size] do
     for j in [i+1:a.size] do
@@ -47,18 +52,21 @@ def findPair (a : Array Int) (target : Int) : Id (Option (Nat × Nat)) := do
 theorem findPair_spec (a : Array Int) (t : Int) :
     ⦃ True ⦄ findPair a t
     ⦃ fun r => match r with
-      | some (i, j) => i < j ∧ j < a.size ∧ a[i]! + a[j]! = t
+      | some (i, j) => i < j ∧ j < a.size ∧ a[i]! + a[j]! = t ∧
+          ∀ p q, p < q → q < a.size → a[p]! + a[q]! = t → i < p ∨ (i = p ∧ j ≤ q)
       | none => ∀ i j, i < j → j < a.size → a[i]! + a[j]! ≠ t ⦄ := by
   vcgen [findPair] invariants
   | inv1 => fun xs s => match s.1 with
     | none => ∀ p q, p < xs.prefix.length → p < q → q < a.size → a[p]! + a[q]! ≠ t
-    | some (some (i, j)) => xs.suffix = [] ∧ i < j ∧ j < a.size ∧ a[i]! + a[j]! = t
+    | some (some (i, j)) => xs.suffix = [] ∧ i < j ∧ j < a.size ∧ a[i]! + a[j]! = t ∧
+        ∀ p q, p < q → q < a.size → a[p]! + a[q]! = t → i < p ∨ (i = p ∧ j ≤ q)
     | some none => False
   | inv2 pref cur suff hsplit b hinv => fun ys s => match s.1 with
     | none =>
         (∀ p q, p < cur → p < q → q < a.size → a[p]! + a[q]! ≠ t) ∧
         (∀ q, q ∈ ys.prefix → a[cur]! + a[q]! ≠ t)
-    | some (some (i, j)) => ys.suffix = [] ∧ i < j ∧ j < a.size ∧ a[i]! + a[j]! = t
+    | some (some (i, j)) => ys.suffix = [] ∧ i < j ∧ j < a.size ∧ a[i]! + a[j]! = t ∧
+        ∀ p q, p < q → q < a.size → a[p]! + a[q]! = t → i < p ∨ (i = p ∧ j ≤ q)
     | some none => False
   with finish
 
@@ -66,8 +74,6 @@ namespace Manual
 
 set_option linter.unusedVariables false
 
-/-- The inner-loop result propagation step of the desugared `findPair`, spelled with the
-same auxiliary matcher (`Break.runK.match_1`) that the `do` elaborator used. -/
 def propagate (x : Option (Option (Nat × Nat)) × Unit) :
     Id (ForInStep (Option (Option (Nat × Nat)) × Unit)) :=
   Break.runK.match_1 (fun _ => Id (ForInStep (Option (Option (Nat × Nat)) × Unit))) x.1
@@ -94,13 +100,12 @@ theorem propagate_none : propagate (none, ()) = pure (ForInStep.yield (none, ())
 theorem postlude_some (r : Option (Nat × Nat)) : postlude (some r, ()) = pure r := rfl
 theorem postlude_none : postlude (none, ()) = pure none := rfl
 
-set_option linter.unusedVariables false
-
 private theorem inner_aux (a : Array Int) (t : Int) (i : Nat) (l : List Nat) :
     (∀ r, (forIn (m := Id) l ((none, ()) : Option (Option (Nat × Nat)) × Unit)
         (fun j _ => if a[i]! + a[j]! = t then pure (.done (some (some (i, j)), ()))
           else pure (.yield (none, ())))).1 = some r →
-      ∃ j ∈ l, r = some (i, j) ∧ a[i]! + a[j]! = t) ∧
+      ∃ pre j post, l = pre ++ j :: post ∧ r = some (i, j) ∧ a[i]! + a[j]! = t ∧
+        ∀ q ∈ pre, a[i]! + a[q]! ≠ t) ∧
     ((forIn (m := Id) l ((none, ()) : Option (Option (Nat × Nat)) × Unit)
         (fun j _ => if a[i]! + a[j]! = t then pure (.done (some (some (i, j)), ()))
           else pure (.yield (none, ())))).1 = none →
@@ -116,13 +121,16 @@ private theorem inner_aux (a : Array Int) (t : Int) (i : Nat) (l : List Nat) :
     · simp only [if_pos h, pure_bind]
       refine ⟨fun r hr => ?_, fun hnone => ?_⟩
       · injection hr with hr
-        exact ⟨x, List.mem_cons_self, by grind⟩
+        exact ⟨[], x, xs, rfl, by grind, h, fun q hq => absurd hq (List.not_mem_nil)⟩
       · injection hnone
     · simp only [if_neg h, pure_bind]
       obtain ⟨ih1, ih2⟩ := ih
       refine ⟨fun r hr => ?_, fun hnone j hj => ?_⟩
-      · obtain ⟨j, hj, hr⟩ := ih1 r hr
-        exact ⟨j, List.mem_cons_of_mem x hj, hr⟩
+      · obtain ⟨pre, j, post, rfl, hr, hhit, hmin⟩ := ih1 r hr
+        refine ⟨x :: pre, j, post, rfl, hr, hhit, fun q hq => ?_⟩
+        rcases List.mem_cons.mp hq with rfl | hq
+        · exact h
+        · exact hmin q hq
       · rcases List.mem_cons.mp hj with rfl | hj
         · exact h
         · exact ih2 hnone j hj
@@ -132,7 +140,10 @@ private theorem outer_aux (a : Array Int) (t : Int) : ∀ l : List Nat,
         (forIn (m := Id) (List.range' (i+1) (a.size - (i+1))) ((none, ()) : Option (Option (Nat × Nat)) × Unit) (fun j _ =>
           if a[i]! + a[j]! = t then pure (.done (some (some (i, j)), ()))
           else pure (.yield (none, ())))) >>= propagate)).1 = some r →
-      ∃ i j, i < j ∧ j < a.size ∧ r = some (i, j) ∧ a[i]! + a[j]! = t) ∧
+      ∃ preI i postI, l = preI ++ i :: postI ∧
+        (∀ p ∈ preI, ∀ q, p < q → q < a.size → a[p]! + a[q]! ≠ t) ∧
+        ∃ pre j post, List.range' (i+1) (a.size - (i+1)) = pre ++ j :: post ∧
+          r = some (i, j) ∧ a[i]! + a[j]! = t ∧ ∀ q ∈ pre, a[i]! + a[q]! ≠ t) ∧
     ((forIn (m := Id) l ((none, ()) : Option (Option (Nat × Nat)) × Unit) (fun i _ =>
         (forIn (m := Id) (List.range' (i+1) (a.size - (i+1))) ((none, ()) : Option (Option (Nat × Nat)) × Unit) (fun j _ =>
           if a[i]! + a[j]! = t then pure (.done (some (some (i, j)), ()))
@@ -164,10 +175,17 @@ private theorem outer_aux (a : Array Int) (t : Int) : ∀ l : List Nat,
         exact propagate_none
       rw [hstep, pure_bind]
       obtain ⟨ih1, ih2⟩ := ih
-      refine ⟨ih1, fun hnone i hi j hij hj => ?_⟩
-      rcases List.mem_cons.mp hi with rfl | hi
-      · exact in2 hres j (List.mem_range'_1.mpr ⟨hij, by omega⟩)
-      · exact ih2 hnone i hi j hij hj
+      have hxcov : ∀ q, x < q → q < a.size → a[x]! + a[q]! ≠ t := fun q hq1 hq2 =>
+        in2 hres q (List.mem_range'_1.mpr ⟨hq1, by omega⟩)
+      refine ⟨fun r hr => ?_, fun hnone i hi j hij hj => ?_⟩
+      · obtain ⟨preI, i, postI, rfl, houter, hinner⟩ := ih1 r hr
+        refine ⟨x :: preI, i, postI, rfl, fun p hp => ?_, hinner⟩
+        rcases List.mem_cons.mp hp with rfl | hp
+        · exact hxcov
+        · exact houter p hp
+      · rcases List.mem_cons.mp hi with rfl | hi
+        · exact hxcov j hij hj
+        · exact ih2 hnone i hi j hij hj
     · have hstep : (forIn (m := Id) (List.range' (x+1) (a.size - (x+1)))
           ((none, ()) : Option (Option (Nat × Nat)) × Unit) (fun j _ =>
             if a[x]! + a[j]! = t then pure (.done (some (some (x, j)), ()))
@@ -179,16 +197,17 @@ private theorem outer_aux (a : Array Int) (t : Int) : ∀ l : List Nat,
             else pure (.yield (none, ())))) = (some r, ()) from Prod.ext hres rfl]
         exact propagate_some r
       rw [hstep, pure_bind]
-      obtain ⟨j, hj, rfl, hhit⟩ := in1 r hres
-      have hjb := List.mem_range'_1.mp hj
+      obtain ⟨pre, j, post, hsplit, rfl, hhit, hmin⟩ := in1 r hres
       refine ⟨fun r' hr' => ?_, fun hnone => ?_⟩
       · injection hr' with hr'
-        exact ⟨x, j, by omega, by omega, hr'.symm, hhit⟩
+        exact ⟨[], x, xs, rfl, fun p hp => absurd hp (List.not_mem_nil),
+          pre, j, post, hsplit, hr'.symm, hhit, hmin⟩
       · injection hnone
 
 theorem findPair_correct (a : Array Int) (t : Int) :
     match (findPair a t).run with
-    | some (i, j) => i < j ∧ j < a.size ∧ a[i]! + a[j]! = t
+    | some (i, j) => i < j ∧ j < a.size ∧ a[i]! + a[j]! = t ∧
+        ∀ p q, p < q → q < a.size → a[p]! + a[q]! = t → i < p ∨ (i = p ∧ j ≤ q)
     | none => ∀ i j, i < j → j < a.size → a[i]! + a[j]! ≠ t := by
   rw [findPair_eq]
   unfold findPair''
@@ -228,7 +247,24 @@ theorem findPair_correct (a : Array Int) (t : Int) :
               else pure (.yield (none, ())))) >>= propagate)) = (some r, ()) from
           Prod.ext hres rfl],
       postlude_some]
-    obtain ⟨i, j, hij, hj, rfl, hhit⟩ := h1 r hres
-    exact ⟨hij, hj, hhit⟩
+    obtain ⟨preI, i, postI, houtsplit, houter, pre, j, post, hinsplit, rfl, hhit, hmin⟩ := h1 r hres
+    have hipos := range'_split_pos houtsplit
+    have hjpos := range'_split_pos hinsplit
+    have hlen : (List.range' 0 a.size).length = a.size := by simp
+    have hout_len : a.size = preI.length + (postI.length + 1) := by
+      simpa [houtsplit] using hlen.symm
+    have hin_len : a.size - (i+1) = pre.length + (post.length + 1) := by
+      have : (List.range' (i+1) (a.size - (i+1))).length = a.size - (i+1) := by simp
+      simpa [hinsplit] using this.symm
+    refine ⟨by omega, by omega, hhit, ?_⟩
+    intro p q hpq hq hpqhit
+    by_cases hpi : p < i
+    · exact absurd hpqhit (houter p ((range'_split_mem_prefix houtsplit).mpr ⟨Nat.zero_le p, by omega⟩) q hpq hq)
+    · by_cases hpi' : p = i
+      · subst hpi'
+        by_cases hqj : q < j
+        · exact absurd hpqhit (hmin q ((range'_split_mem_prefix hinsplit).mpr ⟨by omega, hqj⟩))
+        · exact Or.inr ⟨rfl, by omega⟩
+      · exact Or.inl (by omega)
 
 end Manual

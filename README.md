@@ -1,9 +1,25 @@
 # vcgen showcase
 
 Examples of imperative Lean programs whose specs are one `vcgen ... with finish`
-away, on toolchain `leanprover/lean4-nightly:nightly-2026-07-15`. `vcgen` is the
-Sym-based verification condition generator over the `Std.Internal.Do` metatheory;
-`finish` is the grind-mode discharge step sharing `vcgen`'s internalised E-graph.
+away. `vcgen` is the Sym-based verification condition generator over the
+`Std.Internal.Do` metatheory; `finish` is the grind-mode discharge step sharing
+`vcgen`'s internalised E-graph.
+
+**Status.** `vcgen` is the experimental successor prototype of `mvcgen`; its surface
+syntax and metatheory are under active development and will change. This repository
+pins `leanprover/lean4-nightly:nightly-2026-07-15` and is a snapshot against that
+nightly, not a stable library.
+
+**Building.** Install [elan](https://github.com/leanprover/elan), then `lake build`
+in the checkout; the pinned toolchain downloads automatically. A full cold build
+takes well under a minute.
+
+**Termination.** The `while`-loop functions are total by construction (`repeatM`
+takes a classical fixpoint), and their triples are provable only because the `inv2`
+variant certifies that the loop reaches its exit; a diverging loop would denote an
+unspecified value about which the postcondition could not be established.
+
+**Contact.** Sebastian Graf, `sg@lean-fro.org` (GitHub `sgraf812`).
 
 ## Examples
 
@@ -19,7 +35,7 @@ Sym-based verification condition generator over the `Std.Internal.Do` metatheory
 | `Rollback` | transactional all-or-nothing ledger | `try`/`catch`, exact exception postconditions (`epost` characterizes when `processAll` throws), spec shadowing via `-applyTx_spec` |
 | `TwoSum` | two-pointer search on a sorted array | early return from `while`, exclusion invariant, variant; baseline needs the `wrap`/`with_unfolding_all` recipe against matcher identity |
 | `DutchFlag` | in-place three-way partition | `Array.swapIfInBounds` mutation, zone invariant plus permutation, variant; baseline shows grind-granularity as a load-bearing choice |
-| `FindPair` | first pair summing to a target | nested loops, `return` through both, one invariant per loop with the outer cursor in scope; baseline needs the elaborator's own matcher constant |
+| `FindPair` | first pair summing to a target | nested loops, `return` through both, one invariant per loop; full first-ness spec via two seeded `range'`-split rules; baseline needs the elaborator's own matcher constant |
 | `InsertionSort` | in-place insertion sort | `while` in `for`, swaps, full sorted-plus-permutation spec; one VC survives `finish` and is closed by a named `case` |
 | `Balanced` | bracket matching | early return over `s.toList`; documents the direct-`String`-iteration spike (supported by `Spec.forIn_string`, blocked on a missing `Splits` grind-kit) |
 

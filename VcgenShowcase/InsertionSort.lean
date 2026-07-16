@@ -1,5 +1,6 @@
 import Std.Internal.Do
 import Std.Tactic.Do
+import VcgenShowcase.RangeSplit
 
 /-!
 # In-place insertion sort
@@ -43,21 +44,6 @@ def insertionSort (a : Array Int) : Id (Array Int) := do
       j := j - 1
   return arr
 
-/-- The split element of a `range'` sits at the start plus the prefix length. -/
-theorem range'_split_pos {s n : Nat} {pref suff : List Nat} {c : Nat}
-    (h : List.range' s n = pref ++ c :: suff) : c = s + pref.length := by
-  have := List.eq_of_range'_eq_append_cons h
-  omega
-
-grind_pattern range'_split_pos => List.range' s n, pref ++ c :: suff
-
-theorem perm_swapIfInBounds {α : Type _} {xs l : Array α} {i j : Nat}
-    (hi : i < xs.size) (hj : j < xs.size) (h : xs.Perm l) :
-    (xs.swapIfInBounds i j).Perm l := by
-  rw [Array.swapIfInBounds_def, dif_pos hi, dif_pos hj]
-  exact (Array.swap_perm hi hj).trans h
-
-grind_pattern perm_swapIfInBounds => (xs.swapIfInBounds i j).Perm l
 
 theorem insertionSort_spec (a : Array Int) :
     ⦃ True ⦄ insertionSort a

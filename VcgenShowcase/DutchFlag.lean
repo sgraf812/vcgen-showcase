@@ -1,5 +1,6 @@
 import Std.Internal.Do
 import Std.Tactic.Do
+import VcgenShowcase.RangeSplit
 import VcgenShowcase.ManualLoop
 
 /-!
@@ -58,14 +59,6 @@ def dutchFlag (a : Array Int) : Id (Array Int) := do
       arr := arr.swapIfInBounds mid hi
   return arr
 
-/-- Swapping in bounds preserves any permutation relation to a fixed array. -/
-theorem perm_swapIfInBounds {xs l : Array α} {i j : Nat}
-    (hi : i < xs.size) (hj : j < xs.size) (h : xs.Perm l) :
-    (xs.swapIfInBounds i j).Perm l := by
-  rw [Array.swapIfInBounds_def, dif_pos hi, dif_pos hj]
-  exact (Array.swap_perm hi hj).trans h
-
-grind_pattern perm_swapIfInBounds => (xs.swapIfInBounds i j).Perm l
 
 theorem dutchFlag_spec (a : Array Int) :
     ⦃ True ⦄ dutchFlag a

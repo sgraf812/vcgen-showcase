@@ -1,3 +1,8 @@
+/-
+The program and spec definitions in this file are adapted from
+https://github.com/leanprover/human-eval-lean (HumanEvalLean/HumanEval114.lean),
+MIT License, Copyright (c) Markus Himmel, Copyright (c) OpenAI.
+-/
 import Std.Internal.Do
 import Std.Tactic.Do
 
