@@ -160,7 +160,7 @@ private theorem loop_aux (a : Array Int)
     intro arr lo mid hi hfuel hinv
     have hguard : ¬ mid < hi := by omega
     rw [repeatM_eq_of_monadTail]
-    simp only [repeatM.body, hstop arr lo mid hi hguard, pure_bind, Id.run_pure]
+    simp only [repeatM.body, hstop arr lo mid hi hguard, pure_bind]
     refine ⟨hinv, ?_⟩
     obtain ⟨-, -, -, h4, -⟩ := hinv
     omega
@@ -181,7 +181,7 @@ private theorem loop_aux (a : Array Int)
           clear hneg hzero hpos hstop
           exact ih (arr.swapIfInBounds mid (hi - 1)) lo mid (hi - 1) (by omega)
             (step_pos hinv hguard hneg' hzero')
-    · simp only [repeatM.body, hstop arr lo mid hi hguard, pure_bind, Id.run_pure]
+    · simp only [repeatM.body, hstop arr lo mid hi hguard, pure_bind]
       refine ⟨hinv, ?_⟩
       obtain ⟨-, -, -, h4, -⟩ := hinv
       omega
@@ -193,7 +193,7 @@ theorem dutchFlag_correct (a : Array Int) :
       (∀ k, p ≤ k → k < q → ((dutchFlag a).run[k]! : Int) = 0) ∧
       (∀ k, q ≤ k → k < (dutchFlag a).run.size → (0 : Int) < (dutchFlag a).run[k]!) := by
   unfold dutchFlag
-  simp only [loop_forIn_eq, bind, Id.run_bind, Id.run_pure]
+  simp only [loop_forIn_eq, bind, Id.run_pure]
   have key := loop_aux a
     (wrap (fun (_ : Unit) (st : Array Int × Nat × Nat × Nat) =>
       if st.2.2.1 < st.2.2.2 then

@@ -2,10 +2,11 @@ import Std.Internal.Do
 import Std.Tactic.Do
 
 /-!
-# First pair summing to a target, by nested loops
+# A pair summing to a target, by nested loops
 
 Brute-force search over all index pairs `i < j`, with the `return` exiting both loops.
-The spec pins the result to a valid pair or certifies that none exists.
+The spec pins the result to a valid pair or certifies that none exists; it does not
+pin which pair is returned.
 
 The `vcgen` proof supplies one invariant per loop; the inner one (`inv2`) has the
 outer cursor and the outer invariant in scope. The inner invariant tracks the
@@ -35,7 +36,7 @@ open Std.Internal.Do Lean.Order
 set_option mvcgen.warning false
 set_option grind.warning false
 
-/-- First pair of indices (in lexicographic order) whose elements sum to `target`. -/
+/-- A pair of indices whose elements sum to `target`, if one exists. -/
 def findPair (a : Array Int) (target : Int) : Id (Option (Nat × Nat)) := do
   for i in [0:a.size] do
     for j in [i+1:a.size] do
