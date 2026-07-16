@@ -19,6 +19,10 @@ takes a classical fixpoint), and their triples are provable only because the `in
 variant certifies that the loop reaches its exit; a diverging loop would denote an
 unspecified value about which the postcondition could not be established.
 
+**License.** MIT (see `LICENSE`). The `HumanEval3`/`HumanEval114` program and spec
+definitions are adapted from [human-eval-lean](https://github.com/leanprover/human-eval-lean)
+(MIT, Markus Himmel / OpenAI).
+
 **Contact.** Sebastian Graf, `sg@lean-fro.org` (GitHub `sgraf812`).
 
 ## Examples
