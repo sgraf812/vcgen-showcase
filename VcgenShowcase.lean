@@ -17,3 +17,4 @@ import VcgenShowcase.Heap
 import VcgenShowcase.EditDistance
 import VcgenShowcase.Sieve
 import VcgenShowcase.Transfer
+import VcgenShowcase.Quicksort
