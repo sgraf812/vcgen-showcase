@@ -10,3 +10,4 @@ import VcgenShowcase.TwoSum
 import VcgenShowcase.ManualLoop
 import VcgenShowcase.DutchFlag
 import VcgenShowcase.FindPair
+import VcgenShowcase.InsertionSort
