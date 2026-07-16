@@ -45,6 +45,7 @@ definitions are adapted from [human-eval-lean](https://github.com/leanprover/hum
 | `Parser` | recursive-descent parser for `+`/`*`/parens arithmetic, and the parse-compile-execute pipeline | fuel-indexed mutual recursion over `ExceptT`/`StateM`, canonical `takeWhile` specs, print-parse round trip with `vcgen`-proved composition cores, pure extraction via `le_wp`, end-to-end `evalString` correctness against `StackMachine` |
 | `Heap` | binary min-heap (insert, extract-min) and heapsort | sift-up/down loop invariants over `getElem!`, division-free `parent` grind kit, multiset model via `Array.Perm`; heapsort proved purely against the registered `@[spec]` triples of the heap operations |
 | `EditDistance` | Levenshtein distance, two-row DP against the exponential recursion | suffix-indexed rows so the invariant is one equation, outer loop over `s.reverse` to make the cursor grow by cons, one derived step rule (`dpStep`), `finish` with four seeds |
+| `Sieve` | Sieve of Eratosthenes against first-principles primality | `MarkedBelow` invariant vocabulary, three small number-theory lemmas (divisor swap, composite divisor transfer, unique multiple in a stride) so no VC touches divisibility |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
