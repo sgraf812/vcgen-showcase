@@ -223,9 +223,21 @@ namespace Manual
 /-! The same theorem without `vcgen`. The loop has no early return, so the aux lemma
 is a single equation: starting from accumulators `(ms, s)`, the loop computes
 `min ms (afrom s l)`. The `afrom` theory and the endgame lemmas are shared with the
-`vcgen` proof; what is added is the loop reflection and the plumbing to reach it:
-the `Array`-to-`List` `forIn` bridge, pushing `Id.run` through the binds, and one
-defeq transport of the loop equation onto the goal's `have`-normalized lambda. -/
+`vcgen` proof; everything added below is the loop reflection and the plumbing to
+reach it.
+
+Places to get stuck, each absent from the `vcgen` proof:
+
+1. The reflection equation must be found and generalized over both accumulators; the
+   `vcgen` invariant `min minSum (afrom s cur.suffix) = afrom 0 xs.toList` states the
+   same fact against the cursor and gets the generalization from the loop rule.
+2. The program iterates over an `Array` while the induction wants a list: the
+   `Array.forIn_toList` bridge has to be applied inside the statement of the key
+   fact, where the `forIn` is not yet under binders, because `rw` cannot reach the
+   occurrence in the goal (the accumulators' `have` bindings put it under a binder).
+3. One defeq transport (`have key' : … := key`) moves the loop equation onto the
+   goal's `have`-normalized lambda, for the same elaboration-identity reason as in
+   the other examples. -/
 
 set_option linter.unusedVariables false
 

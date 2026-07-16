@@ -53,6 +53,12 @@ Every module carries such a `Manual` namespace with the same-base baseline and a
   fixpoint whose one sanctioned unfolding hides behind a `MonadTail` instance, and
   the termination variant becomes explicit fuel threaded through the induction.
 
+The bottom line across all seven: the semantic work (invariants, the `afrom` and
+`Dip` predicates, the grind frameworks) is identical in both worlds. What `vcgen`
+deletes is a per-example tax of program-logic re-derivation and
+elaboration-identity debugging, and each instance of that tax is a place where a
+proof stalls for reasons unrelated to the program being verified.
+
 ## Recipes
 
 **Setup.** `import Std.Internal.Do` and `Std.Tactic.Do`, then

@@ -90,11 +90,21 @@ namespace Manual
 
 /-! `belowZero_iff` without `vcgen`: induction over the operations with the balance
 generalized, against the raw `forIn`. The `Dip` framework carries the semantic
-content exactly as in the `vcgen` proof; what is added is the early-return plumbing:
-the aux lemma states both exit conditions against the desugared loop, and the final
-theorem replays the `have`-structure of the loop body so that `rcases` finds the
-term, then transports the case equations across the definitional equality where
-`simp` has normalized the `have`s away. -/
+content exactly as in the `vcgen` proof; everything added below is early-return
+plumbing.
+
+Places to get stuck, each absent from the `vcgen` proof:
+
+1. The aux lemma states both exit conditions (returned `some r`, fell through with
+   `none`) against the desugared loop, with the `forIn` term spelled once per
+   conjunct; the `vcgen` invariant states the semantic content once.
+2. The `balance := balance + op` mutation elaborates to `have` bindings in the loop
+   body, so the goal's lambda is not the plain lambda one would write: `rcases … :`
+   on the hand-written form silently fails to substitute, and only replicating the
+   `have` structure verbatim makes it match.
+3. Mid-proof, `simp` normalizes those `have`s away again, so the case equations
+   produced by `rcases` stop matching and must be transported across the
+   definitional equality by restating them (`have hres' : … := hres`). -/
 
 set_option linter.unusedVariables false
 
