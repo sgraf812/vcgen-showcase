@@ -16,6 +16,7 @@ Sym-based verification condition generator over the `Std.Internal.Do` metatheory
 | `HasDup` | duplicate detection | `Std.HashSet` in the loop state, closed by the library's grind API |
 | `HumanEval3` | `below_zero` from human-eval-lean | replaces the upstream `HasPrefix` theory with a 3-line spec predicate |
 | `HumanEval114` | `minSubArraySum` (Kadane) from human-eval-lean | one-equation loop invariant over a structurally recursive `afrom`; replaces the upstream append-direction preservation lemmas |
+| `Rollback` | transactional all-or-nothing ledger | `try`/`catch`, exact exception postconditions (`epost` characterizes when `processAll` throws), spec shadowing via `-applyTx_spec` |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
