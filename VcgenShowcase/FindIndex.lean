@@ -11,9 +11,40 @@ The `vcgen` proof supplies one loop invariant. The early-return slot is `s.1`; t
 `some` branch pins `xs.suffix = []` because the loop machinery asserts the invariant
 at the full cursor once the loop has returned.
 
-`Manual.findIdx_correct` proves the same fact against the raw `forIn` desugaring:
-a start-offset-generalized induction over `List.range'` threading the `ForInStep`
-state machine.
+Two proofs of the same fact without `vcgen`:
+
+* `Manual.findIdx_correct` reflects the loop into `List.find?` over `List.range'`
+  (`findIdx_eq_find?`) and derives the spec from the `find?` API. The reflection is
+  available because this loop coincides with a library combinator; its proof still
+  goes through the desugaring bridge and one induction over the index list.
+* `Manual.Raw.findIdx_correct` uses the same lemma base as the `vcgen` proof (the
+  grind-annotated `List` and `Id` APIs) and no combinator theory: a
+  start-offset-generalized induction over `List.range'` against the raw `forIn`.
+  The aux statement is the loop invariant, the two exit conditions, and the
+  impossible-state clause, written out three times over; each induction case is a
+  `rw` for the list step, a `simp only` for the monad layer, and grind leaves with
+  hand-picked induction-hypothesis instances.
+
+Places to get stuck in the raw proof, each absent from the `vcgen` proof:
+
+1. The aux statement itself: the invariant must be found *and* generalized over the
+   start offset, extended with both exit conditions and the impossible-state clause,
+   with the `forIn` expression spelled out once per conjunct.
+2. Statement phrasing decides lemma coverage: the `Id` grind lemmas (`Id.run_pure`,
+   `Id.run_bind`) are keyed on `.run`, so the aux must be phrased through `.run.1`
+   for grind to reduce the monad layer, while the goal after `unfold` carries the
+   bare `.fst`, so the final `rcases` must use the bare form and the aux applies
+   only up to defeq.
+3. The induction step must be hand-split: `induction ... with grind` diverges, with
+   the induction hypothesis instantiated at derived arithmetic terms and the
+   `range'` lemma set flooding the E-graph with equalities between unrelated
+   ranges. `rw` the list step, `by_cases` the branch, instantiate the induction
+   hypothesis explicitly, and only then grind.
+4. `List.range'_succ` never fires by e-matching, since arithmetic normalization
+   moves the `n + 1` out from under the pattern; the list step has to be a `rw`.
+5. The desugaring bridge: the `Std.Legacy.Range.forIn_eq_forIn_range'` rewrite plus
+   the arithmetic normalization of the range size, needed before the aux connects
+   to the program at all.
 -/
 
 open Std.Internal.Do Lean.Order
@@ -41,57 +72,62 @@ theorem findIdx_spec (a : Array Int) (t : Int) :
 
 namespace Manual
 
-/-! The same theorem without `vcgen`, against the raw desugaring
+/-- The loop is `List.find?` over the index list. -/
+theorem findIdx_eq_find? (a : Array Int) (t : Int) :
+    (findIdx a t).run = (List.range' 0 a.size).find? (fun i => a[i]! == t) := by
+  unfold findIdx
+  simp only [bind, Std.Legacy.Range.forIn_eq_forIn_range', Std.Legacy.Range.size,
+    Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one]
+  generalize List.range' 0 a.size = l
+  induction l with
+  | nil => rfl
+  | cons x xs ih =>
+    by_cases h : a[x]! = t
+    · rw [List.find?_cons_of_pos (by simpa using h)]
+      simp only [List.forIn_cons, if_pos h, pure_bind]
+      rfl
+    · rw [List.find?_cons_of_neg (by simpa using h)]
+      simpa [List.forIn_cons, h] using ih
 
-```
-do let __s ← forIn [:a.size] (none, ()) fun i __s =>
-       if a[i]! = target then pure (.done (some (some i), ())) else pure (.yield (none, ()))
-   match __s.fst with
-   | some r => pure r
-   | none => pure none
-```
+theorem findIdx_correct (a : Array Int) (t : Int) :
+    match (findIdx a t).run with
+    | some i => i < a.size ∧ a[i]! = t ∧ ∀ j, j < i → a[j]! ≠ t
+    | none => ∀ j, j < a.size → a[j]! ≠ t := by
+  rw [findIdx_eq_find?]
+  rcases h : (List.range' 0 a.size).find? (fun i => a[i]! == t) with _ | i
+  · rw [List.find?_eq_none] at h
+    intro j hj
+    simpa using h j (by simp [List.mem_range'_1]; omega)
+  · rw [List.find?_eq_some_iff_append] at h
+    grind [List.range'_eq_append_iff]
 
-The loop lemma must be stated for an arbitrary start offset `s` so that the
-induction goes through, and against the literal body lambda so that it applies
-to the goal. -/
+namespace Raw
 
 set_option linter.unusedVariables false
 
 private theorem loop_aux (a : Array Int) (t : Int) (n s : Nat) :
     (∀ i, (forIn (m := Id) (List.range' s n) ((none : Option (Option Nat)), ())
-        (fun i s => if a[i]! = t then pure (.done (some (some i), ())) else pure (.yield (none, ())))).1 = some (some i) →
+        (fun i s => if a[i]! = t then pure (.done (some (some i), ())) else pure (.yield (none, ())))).run.1 = some (some i) →
       s ≤ i ∧ i < s + n ∧ a[i]! = t ∧ ∀ j, s ≤ j → j < i → a[j]! ≠ t) ∧
     ((forIn (m := Id) (List.range' s n) ((none : Option (Option Nat)), ())
-        (fun i s => if a[i]! = t then pure (.done (some (some i), ())) else pure (.yield (none, ())))).1 = none →
+        (fun i s => if a[i]! = t then pure (.done (some (some i), ())) else pure (.yield (none, ())))).run.1 = none →
       ∀ j, s ≤ j → j < s + n → a[j]! ≠ t) ∧
     (forIn (m := Id) (List.range' s n) ((none : Option (Option Nat)), ())
-        (fun i s => if a[i]! = t then pure (.done (some (some i), ())) else pure (.yield (none, ())))).1 ≠ some none := by
+        (fun i s => if a[i]! = t then pure (.done (some (some i), ())) else pure (.yield (none, ())))).run.1 ≠ some none := by
   induction n generalizing s with
-  | zero =>
-    refine ⟨fun i h => by simp [List.forIn_nil] at h, fun _ j h1 h2 => by omega, by simp [List.forIn_nil]⟩
+  | zero => grind
   | succ n ih =>
     rw [List.range'_succ, List.forIn_cons]
     by_cases h : a[s]! = t
-    · simp only [if_pos h, pure_bind]
-      refine ⟨fun i hi => ?_, fun hnone => ?_, fun hh => ?_⟩
-      · injection hi with hi
-        injection hi with hi
-        subst hi
-        exact ⟨Nat.le_refl s, by omega, h, fun j h1 h2 => by omega⟩
-      · injection hnone
-      · injection hh with hh
-        injection hh
-    · simp only [if_neg h, pure_bind]
+    · simp only [h, ite_true, pure_bind]
+      refine ⟨fun i hi => ?_, fun hnone => ?_, fun hh => ?_⟩ <;> grind
+    · simp only [h, ite_false, pure_bind]
       obtain ⟨ih1, ih2, ih3⟩ := ih (s + 1)
       refine ⟨fun i hi => ?_, fun hnone j hj1 hj2 => ?_, ih3⟩
-      · obtain ⟨h1, h2, h3, h4⟩ := ih1 i hi
-        refine ⟨by omega, by omega, h3, fun j hj1 hj2 => ?_⟩
-        by_cases hjs : j = s
-        · subst hjs; exact h
-        · exact h4 j (by omega) hj2
-      · by_cases hjs : j = s
-        · subst hjs; exact h
-        · exact ih2 hnone j (by omega) (by omega)
+      · have := ih1 i hi
+        grind
+      · have := ih2 hnone j
+        grind
 
 theorem findIdx_correct (a : Array Int) (t : Int) :
     match (findIdx a t).run with
@@ -108,5 +144,7 @@ theorem findIdx_correct (a : Array Int) (t : Int) :
   · exact absurd hres h3
   · obtain ⟨_, hlt, hhit, hmin⟩ := h1 i hres
     exact ⟨hlt, hhit, fun j hj => hmin j (Nat.zero_le j) hj⟩
+
+end Raw
 
 end Manual

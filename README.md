@@ -17,12 +17,22 @@ Sym-based verification condition generator over the `Std.Internal.Do` metatheory
 | `HumanEval3` | `below_zero` from human-eval-lean | replaces the upstream `HasPrefix` theory with a 3-line spec predicate |
 | `HumanEval114` | `minSubArraySum` (Kadane) from human-eval-lean | one-equation loop invariant over a structurally recursive `afrom`; replaces the upstream append-direction preservation lemmas |
 
-`FindIndex.Manual` is the honest baseline: the same theorem proved against the raw
-`forIn` desugaring takes a start-offset-generalized induction over `List.range'`,
-`ForInStep` state plumbing, and `Id` definitional-unwrapping traps, at roughly ten
-times the proof text. For `while` loops (`Isqrt`) the baseline does not exist at all:
-they elaborate to a `partial_fixpoint`, so a direct proof has to invent fixpoint
-induction first.
+`FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
+loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
+(~30 lines); it exists because this loop coincides with a library combinator, and it
+still pays the desugaring bridge, an induction for the reflection, and `Id`
+definitional-unwrapping traps. `FindIndex.Manual.Raw` is the same-base
+comparison: the grind-annotated `List` and `Id` lemmas, no combinator theory, no
+`vcgen`. Its aux lemma hand-states what `vcgen` generates (invariant, both exit
+conditions, the impossible-state clause, each repeated per conjunct), bridges the
+desugaring, and normalizes the monad layer per induction step; grind closes the
+leaves once the statement is phrased through `.run` so the `Id` lemmas fire, at
+roughly four times the `vcgen` proof text.
+For loops that accumulate state (`Ledger`, `HumanEval114`), reflection means defining
+a bespoke recursive function and proving the reflection by hand; the `vcgen`
+invariant is exactly that reflection, obtained for free. For `while` loops (`Isqrt`)
+even the raw baseline does not exist: they elaborate to a `partial_fixpoint`, so a
+direct proof has to invent fixpoint induction first.
 
 ## Recipes
 
