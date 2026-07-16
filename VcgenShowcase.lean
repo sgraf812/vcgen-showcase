@@ -14,3 +14,4 @@ import VcgenShowcase.InsertionSort
 import VcgenShowcase.Balanced
 import VcgenShowcase.Parser
 import VcgenShowcase.Heap
+import VcgenShowcase.EditDistance
