@@ -1,0 +1,5 @@
+name = "vcgen-showcase"
+defaultTargets = ["VcgenShowcase"]
+
+[[lean_lib]]
+name = "VcgenShowcase"
