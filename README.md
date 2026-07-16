@@ -46,6 +46,7 @@ definitions are adapted from [human-eval-lean](https://github.com/leanprover/hum
 | `Heap` | binary min-heap (insert, extract-min) and heapsort | sift-up/down loop invariants over `getElem!`, division-free `parent` grind kit, multiset model via `Array.Perm`; heapsort proved purely against the registered `@[spec]` triples of the heap operations |
 | `EditDistance` | Levenshtein distance, two-row DP against the exponential recursion | suffix-indexed rows so the invariant is one equation, outer loop over `s.reverse` to make the cursor grow by cons, one derived step rule (`dpStep`), `finish` with four seeds |
 | `Sieve` | Sieve of Eratosthenes against first-principles primality | `MarkedBelow` invariant vocabulary, three small number-theory lemmas (divisor swap, composite divisor transfer, unique multiple in a stride) so no VC touches divisibility |
+| `Transfer` | atomic multi-account transfer batch over a `HashMap` bank | imperative program identified with a pure `Except` model, one fold-equation invariant, two append lemmas transporting it across the cursor |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
