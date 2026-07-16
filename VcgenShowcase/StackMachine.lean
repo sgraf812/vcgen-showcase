@@ -78,3 +78,63 @@ theorem compile_correct (e : Expr) (s : List Int) :
   | mul e₁ e₂ ih₁ ih₂ =>
     simp only [Expr.compile, exec_append]
     vcgen [exec, execInstr, ih₁, ih₂] with finish
+
+namespace Manual
+
+/-! The same theorem without `vcgen`, as a pure equation on the run of the transformer
+stack: `run_seq` is the hand-derived sequencing rule, the per-instruction lemmas
+evaluate single steps, and the induction mirrors the `vcgen` proof with the induction
+hypotheses used as rewrite rules.
+
+This is the mildest of the manual baselines, because the program is first-order
+sequencing whose steps evaluate by `rfl`. Places to get stuck:
+
+1. `run_seq` again has to exist before anything composes.
+2. The per-instruction lemmas must fix the exact stack shape (`y :: x :: st`); the
+   spec-level fact that compiled code always provides it is carried by the induction
+   hypotheses' equations rather than checked by a tactic.
+3. The rewrites must be `simp only`, not `rw`: each `run_seq` step leaves a
+   `match (.ok …, …) with` redex that `rw` will not iota-reduce, and the next rewrite
+   then fails to find its pattern.
+-/
+
+theorem StackM.run_seq {α β : Type} (x : StackM α) (k : α → StackM β) (st : List Int) :
+    (((x >>= k).run.run st).run : Except String β × List Int) =
+      match ((x.run.run st).run : Except String α × List Int) with
+      | (.ok a, s) => (((k a).run.run s).run : Except String β × List Int)
+      | (.error e, s) => (.error e, s) := by
+  rcases h : ((x.run.run st).run : Except String α × List Int) with ⟨r | e, s⟩ <;>
+    simp [ExceptT.run_bind, StateT.run_bind, h]
+
+theorem execInstr_push (n : Int) (st : List Int) :
+    (((execInstr (.push n)).run.run st).run : Except String Unit × List Int) =
+      (.ok (), n :: st) := rfl
+
+theorem execInstr_add (y x : Int) (st : List Int) :
+    (((execInstr .add).run.run (y :: x :: st)).run : Except String Unit × List Int) =
+      (.ok (), (x + y) :: st) := rfl
+
+theorem execInstr_mul (y x : Int) (st : List Int) :
+    (((execInstr .mul).run.run (y :: x :: st)).run : Except String Unit × List Int) =
+      (.ok (), (x * y) :: st) := rfl
+
+theorem exec_nil (st : List Int) :
+    (((exec []).run.run st).run : Except String Unit × List Int) = (.ok (), st) := rfl
+
+theorem exec_cons (i : Instr) (is : List Instr) :
+    exec (i :: is) = (do execInstr i; exec is) := rfl
+
+theorem compile_correct (e : Expr) (s : List Int) :
+    (((exec e.compile).run.run s).run : Except String Unit × List Int) =
+      (.ok (), e.denote :: s) := by
+  induction e generalizing s with
+  | num n =>
+    simp only [Expr.compile, Expr.denote, exec_cons, StackM.run_seq, execInstr_push, exec_nil]
+  | add e₁ e₂ ih₁ ih₂ =>
+    simp only [Expr.compile, Expr.denote, exec_append, exec_cons, StackM.run_seq,
+      ih₁, ih₂, execInstr_add, exec_nil]
+  | mul e₁ e₂ ih₁ ih₂ =>
+    simp only [Expr.compile, Expr.denote, exec_append, exec_cons, StackM.run_seq,
+      ih₁, ih₂, execInstr_mul, exec_nil]
+
+end Manual

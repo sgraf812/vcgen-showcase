@@ -217,3 +217,60 @@ theorem isMinSubarraySum_minSubarraySum {xs : Array Int} :
       min st.1 (afrom st.2 cur.suffix) = afrom 0 xs.toList ∧ st.2 ≤ 0 ∧ st.1 ≤ 0
   with finish [afrom_nonpos, isMinSubarraySum₀_afrom,
     isMinSubarraySum_of_isMinSubarraySum₀_of_neg, isMinSubarraySum_of_nonneg]
+
+namespace Manual
+
+/-! The same theorem without `vcgen`. The loop has no early return, so the aux lemma
+is a single equation: starting from accumulators `(ms, s)`, the loop computes
+`min ms (afrom s l)`. The `afrom` theory and the endgame lemmas are shared with the
+`vcgen` proof; what is added is the loop reflection and the plumbing to reach it:
+the `Array`-to-`List` `forIn` bridge, pushing `Id.run` through the binds, and one
+defeq transport of the loop equation onto the goal's `have`-normalized lambda. -/
+
+set_option linter.unusedVariables false
+
+private theorem loop_aux (l : List Int) : ∀ ms s : Int, s ≤ 0 → ms ≤ 0 →
+    (forIn (m := Id) l ((ms, s) : Int × Int) (fun num st =>
+      pure (.yield (min (min 0 (st.2 + num)) st.1, min 0 (st.2 + num))))).run.1 =
+      min ms (afrom s l) := by
+  induction l with
+  | nil =>
+    intro ms s hs hms
+    rw [List.forIn_nil]
+    simp only [afrom_nil, Id.run_pure]
+    omega
+  | cons x xs ih =>
+    intro ms s hs hms
+    rw [List.forIn_cons]
+    simp only [pure_bind]
+    rw [ih (min (min 0 (s + x)) ms) (min 0 (s + x)) (by omega) (by omega), afrom_cons]
+    omega
+
+theorem minSubarraySum_eq_afrom (xs : Array Int) :
+    minSubarraySum xs =
+      if afrom 0 xs.toList < 0 then afrom 0 xs.toList else xs.toList.min?.getD 0 := by
+  have key : (forIn (m := Id) xs (((0 : Int), (0 : Int)) : Int × Int) (fun num __s =>
+      have minSum := __s.fst
+      have s := __s.snd
+      have s := min 0 (s + num)
+      have minSum := min s minSum
+      pure (ForInStep.yield (minSum, s)))).run.1 = min 0 (afrom 0 xs.toList) := by
+    rw [← Array.forIn_toList]
+    exact loop_aux xs.toList 0 0 (by omega) (by omega)
+  unfold minSubarraySum
+  simp only [bind]
+  have key' : (forIn (m := Id) xs (((0 : Int), (0 : Int)) : Int × Int) (fun num __s =>
+      pure (.yield (min (min 0 (__s.snd + num)) __s.fst, min 0 (__s.snd + num))))).fst =
+      min 0 (afrom 0 xs.toList) := key
+  rw [key', Int.min_eq_right (afrom_nonpos 0 xs.toList)]
+  split <;> simp
+
+theorem isMinSubarraySum_minSubarraySum (xs : Array Int) :
+    IsMinSubarraySum xs.toList (minSubarraySum xs) := by
+  rw [minSubarraySum_eq_afrom]
+  have h₀ := isMinSubarraySum₀_afrom xs.toList
+  split
+  · exact isMinSubarraySum_of_isMinSubarraySum₀_of_neg (by assumption) h₀
+  · exact isMinSubarraySum_of_nonneg h₀ (by grind [afrom_nonpos])
+
+end Manual

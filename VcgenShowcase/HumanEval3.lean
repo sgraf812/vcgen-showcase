@@ -85,3 +85,70 @@ theorem belowZero_iff_take {l : List Int} :
         refine ⟨l.length - 1, by have := List.length_pos_iff.mpr hne; omega, ?_⟩
         rw [Nat.sub_add_cancel (List.length_pos_iff.mpr hne), List.take_length]
         simpa using hn
+
+namespace Manual
+
+/-! `belowZero_iff` without `vcgen`: induction over the operations with the balance
+generalized, against the raw `forIn`. The `Dip` framework carries the semantic
+content exactly as in the `vcgen` proof; what is added is the early-return plumbing:
+the aux lemma states both exit conditions against the desugared loop, and the final
+theorem replays the `have`-structure of the loop body so that `rcases` finds the
+term, then transports the case equations across the definitional equality where
+`simp` has normalized the `have`s away. -/
+
+set_option linter.unusedVariables false
+
+private theorem loop_aux (l : List Int) : ∀ b : Int,
+    (∀ r, (forIn (m := Id) l ((none : Option Bool), b) (fun op s =>
+        if s.2 + op < 0 then pure (.done (some true, s.2 + op))
+        else pure (.yield (none, s.2 + op)))).run.1 = some r →
+      r = true ∧ Dip b l) ∧
+    ((forIn (m := Id) l ((none : Option Bool), b) (fun op s =>
+        if s.2 + op < 0 then pure (.done (some true, s.2 + op))
+        else pure (.yield (none, s.2 + op)))).run.1 = none →
+      ¬ Dip b l) := by
+  induction l with
+  | nil =>
+    intro b
+    refine ⟨fun r hr => ?_, fun _ => by grind⟩
+    rw [List.forIn_nil] at hr
+    injection hr
+  | cons x xs ih =>
+    intro b
+    rw [List.forIn_cons]
+    by_cases h : b + x < 0
+    · simp only [if_pos h, pure_bind]
+      refine ⟨fun r hr => ?_, fun hnone => ?_⟩
+      · injection hr with hr
+        subst hr
+        exact ⟨rfl, by grind⟩
+      · injection hnone
+    · simp only [if_neg h, pure_bind]
+      obtain ⟨ih1, ih2⟩ := ih (b + x)
+      refine ⟨fun r hr => ?_, fun hnone => ?_⟩
+      · have := ih1 r hr
+        grind
+      · have := ih2 hnone
+        grind
+
+theorem belowZero_correct (l : List Int) : belowZero l = true ↔ Dip 0 l := by
+  obtain ⟨h1, h2⟩ := loop_aux l 0
+  unfold belowZero
+  rcases hres : (forIn (m := Id) l ((none : Option Bool), (0 : Int))
+      (fun (op : Int) (__s : Option Bool × Int) =>
+        have balance := __s.snd
+        have balance := balance + op
+        if balance < 0 then pure (.done (some true, balance))
+        else pure (.yield (none, balance)))).run.1 with _ | b
+  · have hnd : ¬ Dip 0 l := h2 hres
+    have hres' : (forIn (m := Id) l ((none : Option Bool), (0 : Int)) (fun op s =>
+        if s.2 + op < 0 then pure (.done (some true, s.2 + op))
+        else pure (.yield (none, s.2 + op)))).run.1 = none := hres
+    simp [hres', hnd]
+  · obtain ⟨rfl, hd⟩ := h1 b hres
+    have hres' : (forIn (m := Id) l ((none : Option Bool), (0 : Int)) (fun op s =>
+        if s.2 + op < 0 then pure (.done (some true, s.2 + op))
+        else pure (.yield (none, s.2 + op)))).run.1 = some true := hres
+    simp [hres', hd]
+
+end Manual

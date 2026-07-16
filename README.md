@@ -30,9 +30,28 @@ leaves once the statement is phrased through `.run` so the `Id` lemmas fire, at
 roughly four times the `vcgen` proof text.
 For loops that accumulate state (`Ledger`, `HumanEval114`), reflection means defining
 a bespoke recursive function and proving the reflection by hand; the `vcgen`
-invariant is exactly that reflection, obtained for free. For `while` loops (`Isqrt`)
-even the raw baseline does not exist: they elaborate to a `partial_fixpoint`, so a
-direct proof has to invent fixpoint induction first.
+invariant is exactly that reflection, obtained for free.
+
+Every module carries such a `Manual` namespace with the same-base baseline and a
+"places to get stuck" list. The recurring taxes across them:
+
+* A sequencing rule per transformer stack (`BankM.run_seq`, `StackM.run_seq`): the
+  bind rule of the program logic, re-derived by hand before anything composes.
+* The aux statement is the invariant plus both exit conditions plus the
+  generalizations (start offset, consumed prefix, accumulators, fuel), with the loop
+  term spelled once per conjunct.
+* Elaboration identity, in three flavors: mutations become `have` bindings that make
+  the goal's lambda differ syntactically from the one you would write (`HasDup`,
+  `HumanEval3`); `match` expressions elaborate to per-declaration auxiliary matchers
+  that `rw`, `show` and unification refuse to cross (`Isqrt`); and `simp` re-normalizes
+  mid-proof so case equations stop matching and must be transported by defeq
+  (`have h' : … := h`).
+* The `Id` and `Except`/`State` simp APIs are keyed on `.run`, so statement phrasing
+  decides whether whole lemma families fire; `match (pure x) with …` does not reduce
+  syntactically at all.
+* `while` loops (`Isqrt`) add fixpoint plumbing: the loop is a `repeatM` least
+  fixpoint whose one sanctioned unfolding hides behind a `MonadTail` instance, and
+  the termination variant becomes explicit fuel threaded through the induction.
 
 ## Recipes
 
