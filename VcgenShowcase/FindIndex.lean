@@ -148,3 +148,7 @@ theorem findIdx_correct (a : Array Int) (t : Int) :
 end Raw
 
 end Manual
+
+/-! Sanity tests. -/
+example : (findIdx #[5, 3, 7, 3] 3).run = some 1 := by cbv
+example : (findIdx #[5, 3, 7] 9).run = none := by cbv

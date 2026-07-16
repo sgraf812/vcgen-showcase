@@ -120,3 +120,8 @@ theorem hasDup_correct (l : List Int) :
     simp [hres', hnd']
 
 end Manual
+
+/-! Sanity tests. -/
+-- `native_decide`: `Std.HashSet` internals do not reduce in the kernel.
+example : (hasDup [1, 2, 1]).run = true := by native_decide
+example : (hasDup [1, 2, 3]).run = false := by native_decide

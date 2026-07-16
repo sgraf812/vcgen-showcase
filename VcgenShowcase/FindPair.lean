@@ -268,3 +268,7 @@ theorem findPair_correct (a : Array Int) (t : Int) :
       · exact Or.inl (by omega)
 
 end Manual
+
+/-! Sanity tests. -/
+example : (findPair #[1, 2, 3, 4] 5).run = some (0, 3) := by cbv
+example : (findPair #[1, 2, 3, 4] 42).run = none := by cbv

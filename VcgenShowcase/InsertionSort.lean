@@ -79,3 +79,8 @@ theorem insertionSort_spec (a : Array Int) :
         · have h1 : (arr[p]! : Int) ≤ arr[q - 1]! := hI p (q - 1) (by omega) (by omega) (by omega)
           omega
     · exact hI p q hpq hq hqj
+
+/-! Sanity tests. -/
+-- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
+example : (insertionSort #[3, 1, 2]).run = #[1, 2, 3] := by native_decide
+example : (insertionSort #[5, 4, 3, 2, 1]).run = #[1, 2, 3, 4, 5] := by native_decide

@@ -46,13 +46,13 @@ def minSubarraySum (xs : Array Int) : Int := Id.run do
   else
       return xs.toList.min?.getD 0
 
-example : minSubarraySum #[2, 3, 4, 1, 2, 4] = 1 := by decide
-example : minSubarraySum #[-1, -2, -3] = -6 := by decide
-example : minSubarraySum #[-1, -2, -3, 2, -10] = -14 := by decide
-example : minSubarraySum #[0, 10, 20, 1000000] = 0 := by decide
-example : minSubarraySum #[100, -33, 32, -1, 0, -2] = -33 := by decide
-example : minSubarraySum #[7] = 7 := by decide
-example : minSubarraySum #[1, -1] = -1 := by decide
+example : minSubarraySum #[2, 3, 4, 1, 2, 4] = 1 := by cbv
+example : minSubarraySum #[-1, -2, -3] = -6 := by cbv
+example : minSubarraySum #[-1, -2, -3, 2, -10] = -14 := by cbv
+example : minSubarraySum #[0, 10, 20, 1000000] = 0 := by cbv
+example : minSubarraySum #[100, -33, 32, -1, 0, -2] = -33 := by cbv
+example : minSubarraySum #[7] = 7 := by cbv
+example : minSubarraySum #[1, -1] = -1 := by cbv
 
 /-! ## Spec (verbatim from human-eval-lean) -/
 

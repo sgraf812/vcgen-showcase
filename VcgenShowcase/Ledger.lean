@@ -152,3 +152,9 @@ theorem processAll_correct (txs : List Tx) (init : Int) (hinit : 0 ≤ init) :
   grind
 
 end Manual
+
+/-! Sanity tests. -/
+example : (((processAll [.deposit 5, .withdraw 3]).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 12) := by cbv
+example : (((processAll [.withdraw 20]).run.run 10).run
+    : Except String Unit × Int).1 = .error "insufficient funds" := by cbv

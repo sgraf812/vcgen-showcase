@@ -94,3 +94,8 @@ theorem isqrt_correct (n : Nat) :
   · simp only [if_neg hb]; rfl
 
 end Manual
+
+/-! Sanity tests. -/
+-- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
+example : (isqrt 10).run = 3 := by native_decide
+example : (isqrt 16).run = 4 := by native_decide

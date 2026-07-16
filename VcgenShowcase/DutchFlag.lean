@@ -209,3 +209,7 @@ theorem dutchFlag_correct (a : Array Int) :
     fun k hk1 hk2 => hz3 k (hmh ▸ hk1) hk2⟩
 
 end Manual
+
+/-! Sanity tests. -/
+-- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
+example : (dutchFlag #[1, -2, 0, 3, -1]).run = #[-1, -2, 0, 3, 1] := by native_decide

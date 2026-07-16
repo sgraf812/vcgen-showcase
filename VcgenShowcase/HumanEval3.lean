@@ -167,3 +167,7 @@ theorem belowZero_correct (l : List Int) : belowZero l = true ↔ Dip 0 l := by
     simp [hres', hd]
 
 end Manual
+
+/-! Sanity tests. -/
+example : belowZero [1, 2, -4, 5] = true := by cbv
+example : belowZero [1, 2, 3] = false := by cbv

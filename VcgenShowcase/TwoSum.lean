@@ -173,3 +173,8 @@ theorem twoSum_correct (a : Array Int) (t : Int)
         | exact fun i j hij hj => key i j hij hj
 
 end Manual
+
+/-! Sanity tests. -/
+-- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
+example : (twoSum #[1, 2, 3, 4] 7).run = some (2, 3) := by native_decide
+example : (twoSum #[1, 2, 3, 4] 42).run = none := by native_decide

@@ -138,3 +138,7 @@ theorem compile_correct (e : Expr) (s : List Int) :
       ih₁, ih₂, execInstr_mul, exec_nil]
 
 end Manual
+
+/-! Sanity tests. -/
+example : (((exec (Expr.compile (.add (.num 2) (.mul (.num 3) (.num 4))))).run.run []).run
+    : Except String Unit × List Int) = (.ok (), [14]) := by cbv

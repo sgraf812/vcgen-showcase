@@ -62,3 +62,8 @@ theorem balanced_spec (s : String) :
     | some false => xs.suffix = [] ∧ ¬ Bal 0 s.toList
     | some true => False
   with finish
+
+/-! Sanity tests. -/
+example : (balanced "(a(b)c)").run = true := by cbv
+example : (balanced "(()").run = false := by cbv
+example : (balanced ")(").run = false := by cbv

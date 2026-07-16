@@ -159,3 +159,9 @@ theorem atomically_correct (txs : List Tx) (init : Int) (hinit : 0 ≤ init) :
 
 
 end Manual
+
+/-! Sanity tests. -/
+example : (((atomically [.deposit 5, .withdraw 20]).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 10) := by cbv
+example : (((atomically [.deposit 5, .withdraw 3]).run.run 10).run
+    : Except String Unit × Int) = (.ok (), 12) := by cbv
