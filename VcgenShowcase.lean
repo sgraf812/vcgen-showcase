@@ -18,3 +18,4 @@ import VcgenShowcase.EditDistance
 import VcgenShowcase.Sieve
 import VcgenShowcase.Transfer
 import VcgenShowcase.Quicksort
+import VcgenShowcase.UnionFind

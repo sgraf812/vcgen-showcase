@@ -48,6 +48,7 @@ definitions are adapted from [human-eval-lean](https://github.com/leanprover/hum
 | `Sieve` | Sieve of Eratosthenes against first-principles primality | `MarkedBelow` invariant vocabulary, three small number-theory lemmas (divisor swap, composite divisor transfer, unique multiple in a stride) so no VC touches divisibility |
 | `Transfer` | atomic multi-account transfer batch over a `HashMap` bank | imperative program identified with a pure `Except` model, one fold-equation invariant, two append lemmas transporting it across the cursor |
 | `Quicksort` | in-place quicksort, full sortedness plus permutation | fuel recursion with the IH as a spec lemma, Lomuto partition zone invariant, slice toolkit (`extract_perm`, `range_bound_transfer`) so recursive calls own their subrange |
+| `UnionFind` | union-find on an ordered forest | `parent ≤ child` representation makes the index its own termination variant; `union_spec` gives connection plus preservation of all existing connections |
 
 `FindIndex.Manual` holds the baselines. The idiomatic non-`vcgen` proof reflects the
 loop into `List.find?` over `List.range'` and derives the spec from the `find?` API
