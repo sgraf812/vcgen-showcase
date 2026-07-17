@@ -68,7 +68,7 @@ theorem rootOfAux_fuel {uf : Array Nat} (hwf : WF uf) :
       rw [rootOfAux_succ]
       by_cases hroot : uf[x]! = x
       · simp [hroot]
-      · simp only [hroot, if_neg, ite_false]
+      · simp only [hroot, ite_false]
         have hlt : uf[x]! < x := by
           have := hwf x hx
           omega
