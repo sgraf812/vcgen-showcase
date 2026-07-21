@@ -20,9 +20,8 @@ Main results:
 
 * `roundtrip`: for `NonnegLits e`, running `parseExpr` on `printExpr e ++ rest`
   returns `e` and leaves exactly `rest`, stated as a `Triple` per grammar level and
-  proved by a single induction over `e`. Each case composes eight `vcgen`-proved
-  core lemmas (`core_E`, `core_T_seq`, ...), each a one-line
-  `rw; vcgen; all_goals grind`.
+  proved by a single induction over `e`. Each case is a direct application of the
+  composition lemmas below; every lemma is a one-line `rw; vcgen; grind`.
 * `parse_print_run` and `compile_correct_run`: pure equations extracted from the
   triples via `Triple.le_wp`, the transformer `wp_apply_eq` simp set, and
   `Id.of_wp_run_eq`; the error branch is refuted by reducing `EPost.Cons.pushExcept`
@@ -44,15 +43,16 @@ Load-bearing techniques, each of which costs an afternoon when missed:
 3. Character facts as conditional rules: `c = '(' → c.isDigit = false` with
    `grind_pattern ... => c.isDigit`. Ground facts about character literals evaporate
    during normalization before grind can chain them.
-4. The composition cores take their callee triples as binder hypotheses. A
-   tactic-level `have` of a `Triple` poisons the next `vcgen` call in the same proof
-   ("could not determine the program type of the goal"), and neither `revert`/`intro`
-   nor `obtain` cleanses the goal; hypotheses bound by the theorem binder are picked
-   up as specs correctly.
-5. Associativity bridges. A core's spec matches `printTerm a ++ ('+' :: mid)`, but
+4. Composition lemmas take their callee triples as binder hypotheses, with the
+   consumed prefix abstracted to a single variable (`s = s0`). This is what lets
+   `vcgen` frame through the opaque printer applications (`printTerm b`, `natDigits`):
+   a callee spec supplied as an ambient `have` with a compound precondition
+   (`s = printTerm b ++ rest`) leaves the frame as a `?vc` metavariable that `grind`
+   cannot solve, whereas the same spec as a lemma binder gets the frame assigned
+   during unification.
+5. Associativity bridges. A lemma's spec matches `printTerm a ++ ('+' :: mid)`, but
    the induction case sees `(printTerm a ++ '+' :: printTerm b) ++ rest`; a
-   `rw [show ... from by simp [List.append_assoc]]` re-associates before the core
-   unifies.
+   `rw [show ... from by simp [List.append_assoc]]` re-associates before it unifies.
 6. Definitions that recurse over `List Char` (`natDigits`, `valDigits`) get their
    equations as tactic-proved `@[grind =]` lemmas over a `foldl` body; marking the
    recursive definition itself `@[grind]` diverges in `whnf`.
@@ -351,76 +351,57 @@ grind_pattern star_not_digit => c.isDigit
 grind_pattern lparen_not_digit => c.isDigit
 grind_pattern rparen_not_digit => c.isDigit
 
-/-! ### Composition cores
+/-! ### Composition lemmas
 
-Each core takes its callee specs as binders: a tactic-`have` of a `Triple` poisons
-the next `vcgen` (it fails to determine the program type of an unchanged goal), while
-binder hypotheses are picked up as specs correctly. -/
+Each parser level is `parse-one-level-down` then a tail. These package the composition
+shapes as binder-spec lemmas, so `vcgen` composes through the opaque printer prefixes
+(`printTerm b`, `natDigits n`) without leaving frame metavariables. `roundtrip` then
+applies them directly. -/
 
-private theorem core_T (t : Expr) (s0 rest : List Char) (fuel : Nat)
+theorem parseTerm_then (s0 rest : List Char) (t : Expr) (fuel : Nat)
     (hFi : ⦃ fun s => s = s0 ⦄ parseFactor fuel ⦃ fun r s => r = t ∧ s = rest ⦄)
-    (hstop : ∀ acc : Expr,
-      ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
+    (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseTerm fuel ⦃ fun r s => r = t ∧ s = rest ⦄ := by
-  rw [parseTerm]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
+  rw [parseTerm]; vcgen (errorOnMissingSpec := false) [hFi, hstop] <;> grind
 
-private theorem core_E (t : Expr) (s0 rest : List Char) (fuel : Nat)
+theorem parseExpr_then (s0 rest : List Char) (t : Expr) (fuel : Nat)
     (hTi : ⦃ fun s => s = s0 ⦄ parseTerm fuel ⦃ fun r s => r = t ∧ s = rest ⦄)
-    (hstop : ∀ acc : Expr,
-      ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
+    (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseExpr fuel ⦃ fun r s => r = t ∧ s = rest ⦄ := by
-  rw [parseExpr]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
+  rw [parseExpr]; vcgen (errorOnMissingSpec := false) [hTi, hstop] <;> grind
 
-private theorem core_ET_step (b : Expr) (mid rest : List Char) (fuel : Nat)
+theorem parseExprTail_step (b : Expr) (mid rest : List Char) (fuel : Nat)
     (hTb : ⦃ fun s => s = mid ⦄ parseTerm fuel ⦃ fun r s => r = b ∧ s = rest ⦄)
-    (hstop : ∀ acc : Expr,
-      ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
-    ∀ acc : Expr, ⦃ fun s => s = '+' :: mid ⦄ parseExprTail (fuel + 1) acc
+    (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
+    ∀ acc, ⦃ fun s => s = '+' :: mid ⦄ parseExprTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.add acc b ∧ s = rest ⦄ := by
-  intro acc
-  rw [parseExprTail]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
+  intro acc; rw [parseExprTail]; vcgen (errorOnMissingSpec := false) [hTb, hstop] <;> grind
 
-private theorem core_TT_step (b : Expr) (mid rest : List Char) (fuel : Nat)
+theorem parseTermTail_step (b : Expr) (mid rest : List Char) (fuel : Nat)
     (hFb : ⦃ fun s => s = mid ⦄ parseFactor fuel ⦃ fun r s => r = b ∧ s = rest ⦄)
-    (hstop : ∀ acc : Expr,
-      ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
-    ∀ acc : Expr, ⦃ fun s => s = '*' :: mid ⦄ parseTermTail (fuel + 1) acc
+    (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
+    ∀ acc, ⦃ fun s => s = '*' :: mid ⦄ parseTermTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.mul acc b ∧ s = rest ⦄ := by
-  intro acc
-  rw [parseTermTail]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
+  intro acc; rw [parseTermTail]; vcgen (errorOnMissingSpec := false) [hFb, hstop] <;> grind
 
-private theorem core_T_seq (a b : Expr) (s0 mid rest : List Char) (fuel : Nat)
-    (hFa : ⦃ fun s => s = s0 ⦄ parseFactor (fuel + 1) ⦃ fun r s => r = a ∧ s = '*' :: mid ⦄)
-    (hstep : ∀ acc : Expr, ⦃ fun s => s = '*' :: mid ⦄ parseTermTail (fuel + 1) acc
-      ⦃ fun r s => r = Expr.mul acc b ∧ s = rest ⦄) :
-    ⦃ fun s => s = s0 ⦄ parseTerm (fuel + 1) ⦃ fun r s => r = Expr.mul a b ∧ s = rest ⦄ := by
-  rw [parseTerm]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
-
-private theorem core_E_seq (a b : Expr) (s0 mid rest : List Char) (fuel : Nat)
+theorem parseExpr_seq (a b : Expr) (s0 mid rest : List Char) (fuel : Nat)
     (hTa : ⦃ fun s => s = s0 ⦄ parseTerm (fuel + 1) ⦃ fun r s => r = a ∧ s = '+' :: mid ⦄)
-    (hstep : ∀ acc : Expr, ⦃ fun s => s = '+' :: mid ⦄ parseExprTail (fuel + 1) acc
+    (hstep : ∀ acc, ⦃ fun s => s = '+' :: mid ⦄ parseExprTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.add acc b ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseExpr (fuel + 1) ⦃ fun r s => r = Expr.add a b ∧ s = rest ⦄ := by
-  rw [parseExpr]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
+  rw [parseExpr]; vcgen (errorOnMissingSpec := false) [hTa, hstep] <;> grind
 
-private theorem core_F_group (e : Expr) (inner rest : List Char) (fuel : Nat)
+theorem parseTerm_seq (a b : Expr) (s0 mid rest : List Char) (fuel : Nat)
+    (hFa : ⦃ fun s => s = s0 ⦄ parseFactor (fuel + 1) ⦃ fun r s => r = a ∧ s = '*' :: mid ⦄)
+    (hstep : ∀ acc, ⦃ fun s => s = '*' :: mid ⦄ parseTermTail (fuel + 1) acc
+      ⦃ fun r s => r = Expr.mul acc b ∧ s = rest ⦄) :
+    ⦃ fun s => s = s0 ⦄ parseTerm (fuel + 1) ⦃ fun r s => r = Expr.mul a b ∧ s = rest ⦄ := by
+  rw [parseTerm]; vcgen (errorOnMissingSpec := false) [hFa, hstep] <;> grind
+
+theorem parseFactor_group (e : Expr) (inner rest : List Char) (fuel : Nat)
     (hEi : ⦃ fun s => s = inner ⦄ parseExpr fuel ⦃ fun r s => r = e ∧ s = ')' :: rest ⦄) :
     ⦃ fun s => s = '(' :: inner ⦄ parseFactor (fuel + 1) ⦃ fun r s => r = e ∧ s = rest ⦄ := by
-  rw [parseFactor]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
+  rw [parseFactor]; vcgen (errorOnMissingSpec := false) [hEi] <;> grind
 
 private theorem core_F_num (n : Int) (hnn : 0 ≤ n) (rest : List Char) (fuel : Nat)
     (hdig : ∀ c, rest.head? = some c → ¬ c.isDigit)
@@ -459,137 +440,83 @@ theorem not_digit_head_rparen (mid : List Char) :
   subst hc
   simp [rparen_not_digit _ rfl]
 
-theorem roundtrip (e : Expr) :
-    (NonnegLits e → ∀ rest fuel,
-      rest.head? ≠ some '+' → rest.head? ≠ some '*' →
-      (∀ c, rest.head? = some c → ¬ c.isDigit) →
-      (printExpr e ++ rest).length < fuel →
-      ⦃ fun s => s = printExpr e ++ rest ⦄ parseExpr fuel ⦃ fun r s => r = e ∧ s = rest ⦄) ∧
-    (NonnegLits e → ∀ rest fuel,
-      rest.head? ≠ some '*' →
-      (∀ c, rest.head? = some c → ¬ c.isDigit) →
-      (printTerm e ++ rest).length < fuel →
-      ⦃ fun s => s = printTerm e ++ rest ⦄ parseTerm fuel ⦃ fun r s => r = e ∧ s = rest ⦄) ∧
-    (NonnegLits e → ∀ rest fuel,
-      (∀ c, rest.head? = some c → ¬ c.isDigit) →
-      (printFactor e ++ rest).length < fuel →
-      ⦃ fun s => s = printFactor e ++ rest ⦄ parseFactor fuel ⦃ fun r s => r = e ∧ s = rest ⦄) := by
+theorem roundtrip (e : Expr) : QE e ∧ QT e ∧ QF e := by
   induction e with
   | num n =>
-    have hF : ∀ rest fuel, 0 ≤ n → (∀ c, rest.head? = some c → ¬ c.isDigit) →
-        (natDigits n.toNat ++ rest).length < fuel →
-        ⦃ fun s => s = natDigits n.toNat ++ rest ⦄ parseFactor fuel
-        ⦃ fun r s => r = Expr.num n ∧ s = rest ⦄ :=
-      fun rest fuel h0 hdig hfuel => core_F_num n h0 rest fuel hdig hfuel
-    refine ⟨fun hnn rest fuel _ hstar hdig hfuel => ?_,
-            fun hnn rest fuel hstar hdig hfuel => ?_,
-            fun hnn rest fuel hdig hfuel => ?_⟩
-    · exact core_E (.num n) _ rest fuel
-        (core_T (.num n) _ rest fuel
-          (hF rest fuel (by grind) hdig (by simpa [printExpr] using hfuel))
-          (fun acc => termTail_stop rest fuel acc hstar))
-        (fun acc => exprTail_stop rest fuel acc (by assumption))
-    · exact core_T (.num n) _ rest fuel
-        (hF rest fuel (by grind) hdig (by simpa [printTerm] using hfuel))
+    have hF : QF (.num n) := fun hnn rest fuel hdig hfuel =>
+      core_F_num n hnn rest fuel hdig hfuel
+    have hT : QT (.num n) := fun hnn rest fuel hstar hdig hfuel =>
+      parseTerm_then (natDigits n.toNat ++ rest) rest (.num n) fuel
+        (core_F_num n hnn rest fuel hdig hfuel)
         (fun acc => termTail_stop rest fuel acc hstar)
-    · exact hF rest fuel (by grind) hdig (by simpa [printFactor] using hfuel)
+    have hE : QE (.num n) := fun hnn rest fuel hplus hstar hdig hfuel =>
+      parseExpr_then (natDigits n.toNat ++ rest) rest (.num n) fuel
+        (hT hnn rest fuel hstar hdig hfuel)
+        (fun acc => exprTail_stop rest fuel acc hplus)
+    exact ⟨hE, hT, hF⟩
   | add a b iha ihb =>
     obtain ⟨-, ihaT, -⟩ := iha
     obtain ⟨-, ihbT, -⟩ := ihb
-    have hE : NonnegLits (.add a b) → ∀ rest fuel,
-        rest.head? ≠ some '+' → rest.head? ≠ some '*' →
-        (∀ c, rest.head? = some c → ¬ c.isDigit) →
-        (printExpr (.add a b) ++ rest).length < fuel →
-        ⦃ fun s => s = printExpr (.add a b) ++ rest ⦄ parseExpr fuel
-        ⦃ fun r s => r = Expr.add a b ∧ s = rest ⦄ := by
+    have hE : QE (.add a b) := by
       intro hnn rest fuel hplus hstar hdig hfuel
       simp only [printExpr] at hfuel
       cases fuel with
       | zero => exact absurd hfuel (by simp)
       | succ f =>
-        rw [show printExpr (a.add b) ++ rest
-            = printTerm a ++ ('+' :: (printTerm b ++ rest)) from by
+        rw [show printExpr (a.add b) ++ rest = printTerm a ++ '+' :: (printTerm b ++ rest) from by
           simp [printExpr, List.append_assoc]]
-        exact core_E_seq a b _ (printTerm b ++ rest) rest f
-          (ihaT hnn.1 ('+' :: (printTerm b ++ rest)) (f + 1)
-            (by simp) (not_digit_head_plus _) (by grind))
-          (core_ET_step b (printTerm b ++ rest) rest f
+        exact parseExpr_seq a b (printTerm a ++ '+' :: (printTerm b ++ rest))
+          (printTerm b ++ rest) rest f
+          (ihaT hnn.1 ('+' :: (printTerm b ++ rest)) (f + 1) (by simp) (not_digit_head_plus _) (by grind))
+          (parseExprTail_step b (printTerm b ++ rest) rest f
             (ihbT hnn.2 rest f hstar hdig (by grind))
             (fun acc => exprTail_stop rest f acc hplus))
-    have hF : NonnegLits (.add a b) → ∀ rest fuel,
-        (∀ c, rest.head? = some c → ¬ c.isDigit) →
-        (printFactor (.add a b) ++ rest).length < fuel →
-        ⦃ fun s => s = printFactor (.add a b) ++ rest ⦄ parseFactor fuel
-        ⦃ fun r s => r = Expr.add a b ∧ s = rest ⦄ := by
+    have hF : QF (.add a b) := by
       intro hnn rest fuel hdig hfuel
       simp only [printFactor] at hfuel
       cases fuel with
       | zero => exact absurd hfuel (by simp)
       | succ f =>
-        rw [show printFactor (a.add b) ++ rest
-            = '(' :: (printExpr (a.add b) ++ (')' :: rest)) from by
+        rw [show printFactor (a.add b) ++ rest = '(' :: (printExpr (a.add b) ++ ')' :: rest) from by
           simp [printFactor, printExpr, List.append_assoc]]
-        exact core_F_group (.add a b) _ rest f
+        exact parseFactor_group (Expr.add a b) (printExpr (a.add b) ++ ')' :: rest) rest f
           (hE hnn (')' :: rest) f (by simp) (by simp) (not_digit_head_rparen _)
             (by simp only [printExpr]; grind))
-    have hT : NonnegLits (.add a b) → ∀ rest fuel,
-        rest.head? ≠ some '*' →
-        (∀ c, rest.head? = some c → ¬ c.isDigit) →
-        (printTerm (.add a b) ++ rest).length < fuel →
-        ⦃ fun s => s = printTerm (.add a b) ++ rest ⦄ parseTerm fuel
-        ⦃ fun r s => r = Expr.add a b ∧ s = rest ⦄ := by
-      intro hnn rest fuel hstar hdig hfuel
-      exact core_T (.add a b) _ rest fuel
-        (hF hnn rest fuel hdig (by simpa [printTerm, printFactor] using hfuel))
+    have hT : QT (.add a b) := fun hnn rest fuel hstar hdig hfuel =>
+      parseTerm_then (printFactor (.add a b) ++ rest) rest (Expr.add a b) fuel
+        (hF hnn rest fuel hdig hfuel)
         (fun acc => termTail_stop rest fuel acc hstar)
     exact ⟨hE, hT, hF⟩
   | mul a b iha ihb =>
     obtain ⟨-, -, ihaF⟩ := iha
     obtain ⟨-, -, ihbF⟩ := ihb
-    have hT : NonnegLits (.mul a b) → ∀ rest fuel,
-        rest.head? ≠ some '*' →
-        (∀ c, rest.head? = some c → ¬ c.isDigit) →
-        (printTerm (.mul a b) ++ rest).length < fuel →
-        ⦃ fun s => s = printTerm (.mul a b) ++ rest ⦄ parseTerm fuel
-        ⦃ fun r s => r = Expr.mul a b ∧ s = rest ⦄ := by
+    have hT : QT (.mul a b) := by
       intro hnn rest fuel hstar hdig hfuel
       simp only [printTerm] at hfuel
       cases fuel with
       | zero => exact absurd hfuel (by simp)
       | succ f =>
-        rw [show printTerm (a.mul b) ++ rest
-            = printFactor a ++ ('*' :: (printFactor b ++ rest)) from by
+        rw [show printTerm (a.mul b) ++ rest = printFactor a ++ '*' :: (printFactor b ++ rest) from by
           simp [printTerm, List.append_assoc]]
-        exact core_T_seq a b _ (printFactor b ++ rest) rest f
-          (ihaF hnn.1 ('*' :: (printFactor b ++ rest)) (f + 1)
-            (not_digit_head_star _) (by grind))
-          (core_TT_step b (printFactor b ++ rest) rest f
+        exact parseTerm_seq a b (printFactor a ++ '*' :: (printFactor b ++ rest))
+          (printFactor b ++ rest) rest f
+          (ihaF hnn.1 ('*' :: (printFactor b ++ rest)) (f + 1) (not_digit_head_star _) (by grind))
+          (parseTermTail_step b (printFactor b ++ rest) rest f
             (ihbF hnn.2 rest f hdig (by grind))
             (fun acc => termTail_stop rest f acc hstar))
-    have hE : NonnegLits (.mul a b) → ∀ rest fuel,
-        rest.head? ≠ some '+' → rest.head? ≠ some '*' →
-        (∀ c, rest.head? = some c → ¬ c.isDigit) →
-        (printExpr (.mul a b) ++ rest).length < fuel →
-        ⦃ fun s => s = printExpr (.mul a b) ++ rest ⦄ parseExpr fuel
-        ⦃ fun r s => r = Expr.mul a b ∧ s = rest ⦄ := by
-      intro hnn rest fuel hplus hstar hdig hfuel
-      exact core_E (.mul a b) _ rest fuel
-        (hT hnn rest fuel hstar hdig (by simpa [printExpr, printTerm] using hfuel))
+    have hE : QE (.mul a b) := fun hnn rest fuel hplus hstar hdig hfuel =>
+      parseExpr_then (printTerm (.mul a b) ++ rest) rest (Expr.mul a b) fuel
+        (hT hnn rest fuel hstar hdig hfuel)
         (fun acc => exprTail_stop rest fuel acc hplus)
-    have hF : NonnegLits (.mul a b) → ∀ rest fuel,
-        (∀ c, rest.head? = some c → ¬ c.isDigit) →
-        (printFactor (.mul a b) ++ rest).length < fuel →
-        ⦃ fun s => s = printFactor (.mul a b) ++ rest ⦄ parseFactor fuel
-        ⦃ fun r s => r = Expr.mul a b ∧ s = rest ⦄ := by
+    have hF : QF (.mul a b) := by
       intro hnn rest fuel hdig hfuel
       simp only [printFactor] at hfuel
       cases fuel with
       | zero => exact absurd hfuel (by simp)
       | succ f =>
-        rw [show printFactor (a.mul b) ++ rest
-            = '(' :: (printExpr (a.mul b) ++ (')' :: rest)) from by
+        rw [show printFactor (a.mul b) ++ rest = '(' :: (printExpr (a.mul b) ++ ')' :: rest) from by
           simp [printFactor, printExpr, List.append_assoc]]
-        exact core_F_group (.mul a b) _ rest f
+        exact parseFactor_group (Expr.mul a b) (printExpr (a.mul b) ++ ')' :: rest) rest f
           (hE hnn (')' :: rest) f (by simp) (by simp) (not_digit_head_rparen _)
             (by simp only [printExpr]; grind))
     exact ⟨hE, hT, hF⟩
