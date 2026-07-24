@@ -21,7 +21,8 @@ Main results:
 * `roundtrip`: for `NonnegLits e`, running `parseExpr` on `printExpr e ++ rest`
   returns `e` and leaves exactly `rest`, stated as a `Triple` per grammar level and
   proved by a single induction over `e`. Each case is a direct application of the
-  composition lemmas below; every lemma is a one-line `rw; vcgen … with finish`.
+  composition lemmas below, each a one-line `vcgen [parseX, …] with finish`; the two
+  self-recursive tail steps `rw` to unfold the outer call once before speccing the recursion.
 * `parse_print_run` and `compile_correct_run`: pure equations extracted from the
   triples via `Triple.le_wp`, the transformer `wp_apply_eq` simp set, and
   `Id.of_wp_run_eq`; the error branch is refuted by reducing `EPost.Cons.pushExcept`
@@ -327,14 +328,12 @@ abbrev QF (e : Expr) : Prop := NonnegLits e → ∀ rest fuel,
 theorem exprTail_stop (rest : List Char) (fuel : Nat) (acc : Expr)
     (h : rest.head? ≠ some '+') :
     ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄ := by
-  rw [parseExprTail]
-  vcgen (errorOnMissingSpec := false) with finish
+  vcgen (errorOnMissingSpec := false) [parseExprTail] with finish
 
 theorem termTail_stop (rest : List Char) (fuel : Nat) (acc : Expr)
     (h : rest.head? ≠ some '*') :
     ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄ := by
-  rw [parseTermTail]
-  vcgen (errorOnMissingSpec := false) with finish
+  vcgen (errorOnMissingSpec := false) [parseTermTail] with finish
 
 theorem plus_not_digit (c : Char) : c = '+' → c.isDigit = false := by rintro rfl; decide
 theorem star_not_digit (c : Char) : c = '*' → c.isDigit = false := by rintro rfl; decide
@@ -357,13 +356,13 @@ theorem parseTerm_then (s0 rest : List Char) (t : Expr) (fuel : Nat)
     (hFi : ⦃ fun s => s = s0 ⦄ parseFactor fuel ⦃ fun r s => r = t ∧ s = rest ⦄)
     (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseTerm fuel ⦃ fun r s => r = t ∧ s = rest ⦄ := by
-  rw [parseTerm]; vcgen [hFi, hstop] with finish
+  vcgen [parseTerm, hFi, hstop] with finish
 
 theorem parseExpr_then (s0 rest : List Char) (t : Expr) (fuel : Nat)
     (hTi : ⦃ fun s => s = s0 ⦄ parseTerm fuel ⦃ fun r s => r = t ∧ s = rest ⦄)
     (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseExpr fuel ⦃ fun r s => r = t ∧ s = rest ⦄ := by
-  rw [parseExpr]; vcgen [hTi, hstop] with finish
+  vcgen [parseExpr, hTi, hstop] with finish
 
 theorem parseExprTail_step (b : Expr) (mid rest : List Char) (fuel : Nat)
     (hTb : ⦃ fun s => s = mid ⦄ parseTerm fuel ⦃ fun r s => r = b ∧ s = rest ⦄)
@@ -384,19 +383,19 @@ theorem parseExpr_seq (a b : Expr) (s0 mid rest : List Char) (fuel : Nat)
     (hstep : ∀ acc, ⦃ fun s => s = '+' :: mid ⦄ parseExprTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.add acc b ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseExpr (fuel + 1) ⦃ fun r s => r = Expr.add a b ∧ s = rest ⦄ := by
-  rw [parseExpr]; vcgen [hTa, hstep] with finish
+  vcgen [parseExpr, hTa, hstep] with finish
 
 theorem parseTerm_seq (a b : Expr) (s0 mid rest : List Char) (fuel : Nat)
     (hFa : ⦃ fun s => s = s0 ⦄ parseFactor (fuel + 1) ⦃ fun r s => r = a ∧ s = '*' :: mid ⦄)
     (hstep : ∀ acc, ⦃ fun s => s = '*' :: mid ⦄ parseTermTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.mul acc b ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseTerm (fuel + 1) ⦃ fun r s => r = Expr.mul a b ∧ s = rest ⦄ := by
-  rw [parseTerm]; vcgen [hFa, hstep] with finish
+  vcgen [parseTerm, hFa, hstep] with finish
 
 theorem parseFactor_group (e : Expr) (inner rest : List Char) (fuel : Nat)
     (hEi : ⦃ fun s => s = inner ⦄ parseExpr fuel ⦃ fun r s => r = e ∧ s = ')' :: rest ⦄) :
     ⦃ fun s => s = '(' :: inner ⦄ parseFactor (fuel + 1) ⦃ fun r s => r = e ∧ s = rest ⦄ := by
-  rw [parseFactor]; vcgen [hEi] with finish
+  vcgen [parseFactor, hEi] with finish
 
 private theorem core_F_num (n : Int) (hnn : 0 ≤ n) (rest : List Char) (fuel : Nat)
     (hdig : ∀ c, rest.head? = some c → ¬ c.isDigit)
@@ -409,9 +408,8 @@ private theorem core_F_num (n : Int) (hnn : 0 ≤ n) (rest : List Char) (fuel : 
   have hd : d.isDigit := natDigits_head_digit _ d (by rw [hnds]; rfl)
   have hval : valDigits 0 (d :: ds) = n.toNat := by rw [← hnds]; exact valDigits_natDigits _
   rw [hnds] at htake hdrop hfuel ⊢
-  rw [parseFactor]
   refine ⟨?_⟩
-  vcgen (errorOnMissingSpec := false) with finish [Int.toNat_of_nonneg]
+  vcgen (errorOnMissingSpec := false) [parseFactor] with finish [Int.toNat_of_nonneg]
 
 theorem not_digit_head_plus (mid : List Char) :
     ∀ c, ('+' :: mid).head? = some c → ¬ c.isDigit := by
