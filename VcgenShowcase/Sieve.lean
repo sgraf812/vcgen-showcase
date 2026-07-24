@@ -24,8 +24,9 @@ Number theory enters through exactly three lemmas, each a few lines:
 Each invariant transition is a dedicated lemma (`markInv_enter`, `markInv_step`,
 `markInv_exit`, `sieveInv_skip`, `sieveInv_final`), so no verification condition
 ever reasons about divisibility directly; `finish` needs `range'_split_pos` to
-identify the outer cursor with `2 + prefix.length`, and two hand-closed cases
-remain (the final weakening and the marking step, both three-liners).
+identify the outer cursor with `2 + prefix.length`, the `size` projections to
+recover `arr.size = n + 1`, and `Nat.dvd_add`/`Nat.dvd_refl` to advance the
+marking cursor's divisibility. Every verification condition then closes.
 -/
 
 open Std.Internal.Do Lean.Order
@@ -98,6 +99,12 @@ of `i` is marked, on top of `MarkedBelow i`. -/
 def MarkInv (arr : Array Bool) (n i j : Nat) : Prop :=
   arr.size = n + 1 ∧
   ∀ k, k ≤ n → (arr[k]! = false ↔ (MarkedBelow i k ∨ (i ∣ k ∧ i < k ∧ k < j)))
+
+@[grind →] theorem SieveInv.size {arr : Array Bool} {n i : Nat} (h : SieveInv arr n i) :
+    arr.size = n + 1 := h.1
+
+@[grind →] theorem MarkInv.size {arr : Array Bool} {n i j : Nat} (h : MarkInv arr n i j) :
+    arr.size = n + 1 := h.1
 
 theorem sieveInv_init (n : Nat) :
     SieveInv (((Array.replicate (n + 1) true).setIfInBounds 0 false).setIfInBounds 1 false)
@@ -261,19 +268,9 @@ theorem sieve_spec (n : Nat) :
     | .inl (arr, j) => MarkInv arr n cur j ∧ cur ∣ j ∧ cur * cur ≤ j ∧ 2 ≤ cur
     | .inr (arr, j) => SieveInv arr n (cur + 1)
   | inv3 => fun st => n + 1 - st.2
-  with (try finish [sieveInv_init, markInv_enter, markInv_step, markInv_exit,
-    sieveInv_skip, sieveInv_final, range'_split_pos, Nat.dvd_mul_right])
-  case vc2 =>
-    rename_i arr hinv
-    exact ⟨hinv.1, sieveInv_final hinv (by simp at hinv ⊢; omega)⟩
-  case vc5 =>
-    rename_i pref cur suff hsplit arr0 hsiv hif st hinv hguard
-    obtain ⟨arr, j⟩ := st
-    dsimp only at hinv hguard ⊢
-    obtain ⟨hmark, hdvd, hii, h2⟩ := hinv
-    simp only [meet_prop_eq_and]
-    exact ⟨by simp; omega, markInv_step hmark hdvd hii h2 hguard,
-      Nat.dvd_add hdvd (Nat.dvd_refl cur), by omega, h2⟩
+  with finish [sieveInv_init, markInv_enter, markInv_step, markInv_exit,
+    sieveInv_skip, sieveInv_final, range'_split_pos, Nat.dvd_mul_right,
+    Nat.dvd_add, Nat.dvd_refl]
 
 /-! Sanity tests. `native_decide`: the `while` loop is an opaque fixpoint. -/
 example : ((List.range 31).filter (fun k => (sieve 30).run[k]!))

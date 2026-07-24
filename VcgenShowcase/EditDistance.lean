@@ -23,9 +23,10 @@ The design that keeps the invariant to one equation:
   (`byteIdx_prev_lt`), so every loop's variant is `st.…offset.byteIdx`.
 
 Three step lemmas (`init_step`, `base_step`, `dp_step`) and one write-extends-the-row
-lemma (`rowUpTo_extend`) are the whole grind framework; `finish` seeds `base_step`
-and `row_of_upTo_startPos`, and the four residual verification conditions (each
-loop's step, plus the initial row) are closed by name.
+lemma (`rowUpTo_extend`) are the whole grind framework; `finish` seeds them together
+with `rowUpTo_init` and `row_of_upTo_startPos`, and the position-order bridge
+(`byteIdx_prev_lt`, `byteIdx_le_of_le`) feeds the variant decrease, so every
+verification condition closes automatically.
 
 The position kit at the top is the reusable part: `tailChars` and its `prev`/endpoint
 equations, and the bridge between `Pos` order and `byteIdx` arithmetic (`byteIdx_le`,
@@ -88,7 +89,9 @@ theorem byteIdx_prev_lt {s : String} {p : s.Pos} {h : p ≠ s.startPos} :
   have := Pos.prev_lt (p := p) (h := h)
   simpa [Pos.lt_iff, Pos.Raw.lt_iff] using this
 
-theorem byteIdx_le_of_le {s : String} {p q : s.Pos} (h : p ≤ q) :
+grind_pattern byteIdx_prev_lt => (p.prev h).offset.byteIdx
+
+@[grind →] theorem byteIdx_le_of_le {s : String} {p q : s.Pos} (h : p ≤ q) :
     p.offset.byteIdx ≤ q.offset.byteIdx := by
   rw [Pos.le_iff, Pos.Raw.le_iff] at h
   exact h
@@ -283,35 +286,7 @@ theorem editDistance_spec (s t : String) :
     | .inr (newRow, w) =>
         Row t ((c3.2.1.prev c5).get (by simp) :: tailChars s c3.2.1) newRow
   | inv6 => fun st => st.2.offset.byteIdx
-  with (try finish [base_step, row_of_upTo_startPos])
-  case vc1 => exact ⟨rowUpTo_init t, by simp [tailChars_endPos]⟩
-  case vc9 =>
-    rename_i st hinv hg
-    obtain ⟨row, q, len⟩ := st
-    dsimp only at hinv hg ⊢
-    obtain ⟨hru, hlen⟩ := hinv
-    obtain ⟨hstep, hlen'⟩ := init_step hru hg hlen
-    show ⌜_⌝ ⊓ _
-    rw [meet_prop_eq_and, ofProp_prop_eq]
-    exact ⟨byteIdx_prev_lt (h := hg), hstep, hlen'⟩
-  case vc6 =>
-    rename_i c1 c2 c3 c4 c5 st hinv hg
-    obtain ⟨newRow, w⟩ := st
-    dsimp only at hinv hg ⊢
-    obtain ⟨hrow, -⟩ := c4
-    show ⌜_⌝ ⊓ _
-    rw [meet_prop_eq_and, ofProp_prop_eq]
-    exact ⟨byteIdx_prev_lt (h := hg), dp_step hg hrow hinv⟩
-  case vc5 =>
-    rename_i c1 c2 c3 c4 c5 st hinv
-    obtain ⟨newRow, w⟩ := st
-    dsimp only at hinv c4 ⊢
-    obtain ⟨-, hslen⟩ := c4
-    show ⌜_⌝ ⊓ _
-    rw [meet_prop_eq_and, ofProp_prop_eq]
-    refine ⟨byteIdx_prev_lt (h := c5), ?_, ?_⟩
-    · rwa [tailChars_prev c5]
-    · rw [tailChars_prev c5]; simp [hslen]
+  with finish [base_step, row_of_upTo_startPos, init_step, dp_step, rowUpTo_init]
 
 /-! Sanity tests. `lev` reduces in the kernel; the program needs `native_decide`. -/
 example : lev "kitten".toList "sitting".toList = 3 := by cbv

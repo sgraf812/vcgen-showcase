@@ -15,13 +15,10 @@ The proof structure:
 * `transfer_spec` (`@[spec]`) characterizes one transfer by one model step
   (`applyTx`), with the exception postcondition carrying the model's error.
 * The loop invariant is a single fold equation, `applyTxs b xs.prefix = .ok s`.
-* Two append lemmas (`applyTxs_append_error`, `applyTxs_append_ok`) transport the
-  invariant across the cursor split; `applyTx_eta` bridges the tuple eta-expansion
-  the `for` destructuring introduces.
-
-Two verification conditions survive `finish` and are closed in a few lines each:
-the mid-batch throw (stitching prefix, failing step and suffix into the model's
-error) and the successful step (the same stitch on the `ok` side).
+* `applyTxs_append` splits a batch at the cursor into the prefix's result bound
+  through the suffix; the `Except.bind` reductions and `applyTx_eta` (bridging the
+  tuple eta-expansion the `for` destructuring introduces) let `grind` stitch every
+  verification condition from the invariant.
 -/
 
 open Std.Internal.Do Lean.Order
@@ -93,13 +90,28 @@ theorem applyTxs_append_ok {b b' : Bank} {l l' : List Tx}
     · rw [heq] at *; exact ih h
     · rw [heq] at *; exact absurd h (by simp)
 
+@[grind =] theorem except_ok_bind {α β ε : Type} (a : α) (f : α → Except ε β) :
+    (Except.ok a).bind f = f a := rfl
+@[grind =] theorem except_error_bind {α β ε : Type} (e : ε) (f : α → Except ε β) :
+    (Except.error e : Except ε α).bind f = Except.error e := rfl
+
+/-- A batch splits at any cursor: the suffix runs from the prefix's result. -/
+@[grind =] theorem applyTxs_append (b : Bank) (l l' : List Tx) :
+    applyTxs b (l ++ l') = (applyTxs b l).bind (fun b' => applyTxs b' l') := by
+  induction l generalizing b with
+  | nil => rfl
+  | cons tx txs ih =>
+    simp only [List.cons_append, applyTxs_cons]
+    cases applyTx b tx with
+    | ok b' => simp [ih]
+    | error e => rfl
+
 @[spec] theorem transfer_spec (src dst : String) (amt : Int) (b : Bank) :
     ⦃ fun s => s = b ⦄
     transfer src dst amt
     ⦃ fun _ s => applyTx b (src, dst, amt) = .ok s;
       epost⟨fun e _ => applyTx b (src, dst, amt) = .error e⟩ ⦄ := by
-  vcgen [transfer]
-  all_goals grind [applyTx]
+  vcgen [transfer] with finish [applyTx]
 
 /-- Apply every transfer in order; any failure aborts mid-batch. -/
 def transferAll (txs : List Tx) : BankM Unit := do
@@ -123,20 +135,7 @@ theorem transferAllAtomic_spec (txs : List Tx) (b : Bank) :
                  (∀ e, applyTxs b txs = .error e → r = false ∧ s = b) ⦄ := by
   vcgen [transferAllAtomic, tryCatch, transferAll] invariants
   | inv1 => fun xs (_ : PUnit) s => applyTxs b xs.prefix = .ok s
-  with (try finish [applyTxs_append_error, applyTxs_append_ok])
-  case vc3 =>
-    rename_i hsb pref cur suff hsplit u s1 hpref e s0 herr
-    have h1 := applyTxs_append_ok (l' := cur :: suff) hpref
-    rw [← hsplit] at h1
-    have h2 : applyTxs b txs = .error e := by
-      rw [h1, applyTxs_cons, show applyTx s1 cur = .error e from by
-        rw [← applyTx_eta]; exact herr]
-    exact ⟨fun b' hok => absurd hok (by rw [h2]; simp), fun e' _ => ⟨rfl, hsb⟩⟩
-  case vc4 =>
-    rename_i hsb pref cur suff hsplit u s1 hpref u2 s0 hok
-    have h1 := applyTxs_append_ok (l' := [cur]) hpref
-    have h2 : applyTx s1 cur = .ok s0 := by rw [← applyTx_eta]; exact hok
-    grind
+  with finish [applyTxs_append_error, applyTxs_append_ok]
 
 end Transfer
 

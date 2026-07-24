@@ -128,15 +128,17 @@ def PartInv (a : Array Int) (lo hi : Nat) (arr : Array Int) (mid i : Nat) : Prop
   (∀ k, mid ≤ k → k < i → a[hi-1]! ≤ arr[k]!) ∧
   arr[hi-1]! = a[hi-1]!
 
-theorem partInv_init (a : Array Int) (lo hi : Nat) :
-    PartInv a lo hi a lo lo := by
+theorem partInv_init (a : Array Int) (lo hi j : Nat) (hj : lo = j) :
+    PartInv a lo hi a lo j := by
+  subst hj
   refine ⟨rfl, Array.Perm.refl _, Nat.le_refl _, Nat.le_refl _,
     fun k _ => rfl, fun k h1 h2 => by omega, fun k h1 h2 => by omega, rfl⟩
 
-theorem partInv_step_lt {a arr : Array Int} {lo hi mid i : Nat}
+theorem partInv_step_lt {a arr : Array Int} {lo hi mid i j : Nat}
     (h : PartInv a lo hi arr mid i) (hlo : lo ≤ i) (hup : i < hi - 1) (hhi : hi ≤ a.size)
-    (hlt : arr[i]! < a[hi-1]!) :
-    PartInv a lo hi (arr.swapIfInBounds mid i) (mid + 1) (i + 1) := by
+    (hlt : arr[i]! < a[hi-1]!) (hj : i + 1 = j) :
+    PartInv a lo hi (arr.swapIfInBounds mid i) (mid + 1) j := by
+  subst hj
   obtain ⟨hsz, hperm, hm1, hm2, hout, hzlt, hzge, hpiv⟩ := h
   have hmb : mid < arr.size := by omega
   have hib : i < arr.size := by omega
@@ -162,10 +164,11 @@ theorem partInv_step_lt {a arr : Array Int} {lo hi mid i : Nat}
     have hne2 : hi - 1 ≠ i := by omega
     grind
 
-theorem partInv_step_ge {a arr : Array Int} {lo hi mid i : Nat}
+theorem partInv_step_ge {a arr : Array Int} {lo hi mid i j : Nat}
     (h : PartInv a lo hi arr mid i) (hup : i < hi - 1)
-    (hge : ¬ arr[i]! < a[hi-1]!) :
-    PartInv a lo hi arr mid (i + 1) := by
+    (hge : ¬ arr[i]! < a[hi-1]!) (hj : i + 1 = j) :
+    PartInv a lo hi arr mid j := by
+  subst hj
   obtain ⟨hsz, hperm, hm1, hm2, hout, hzlt, hzge, hpiv⟩ := h
   refine ⟨hsz, hperm, hm1, by omega, hout, hzlt, ?_, hpiv⟩
   intro k h1 h2
@@ -173,9 +176,10 @@ theorem partInv_step_ge {a arr : Array Int} {lo hi mid i : Nat}
   · subst hki; omega
   · exact hzge k h1 (by omega)
 
-theorem partInv_final {a arr : Array Int} {lo hi mid : Nat}
-    (h : PartInv a lo hi arr mid (hi - 1)) (hlo : lo < hi) (hhi : hi ≤ a.size) :
+theorem partInv_final {a arr : Array Int} {lo hi mid i : Nat}
+    (h : PartInv a lo hi arr mid i) (hi1 : i = hi - 1) (hlo : lo < hi) (hhi : hi ≤ a.size) :
     PartPost a lo hi (arr.swapIfInBounds mid (hi - 1)) mid := by
+  subst hi1
   obtain ⟨hsz, hperm, hm1, hm2, hout, hzlt, hzge, hpiv⟩ := h
   have hmb : mid < arr.size := by omega
   have hhb : hi - 1 < arr.size := by omega
@@ -208,38 +212,8 @@ theorem partition_spec (a : Array Int) (lo hi : Nat) (hlo : lo < hi) (hhi : hi �
   vcgen [partition] invariants
   | inv1 => fun xs (arr, mid) => PartInv a lo hi arr mid (lo + xs.prefix.length) ∧
       lo + xs.prefix.length ≤ hi - 1
-  with (try finish [partInv_init, partInv_step_lt, partInv_step_ge, partInv_final,
-    range'_split_pos])
-  case vc1 =>
-    exact ⟨partInv_init a lo hi, by simp; omega⟩
-  case vc3 =>
-    rename_i pref cur suff hsplit st hinv hguard
-    obtain ⟨arr, mid⟩ := st
-    dsimp only at hinv hguard ⊢
-    obtain ⟨hpi, hbound⟩ := hinv
-    have hlen := congrArg List.length hsplit
-    simp [List.length_range'] at hlen
-    have hcur := range'_split_pos hsplit
-    subst hcur
-    simp only [List.length_append, List.length_cons, List.length_nil]
-    constructor
-    · have := partInv_step_lt hpi (by omega) (by omega) hhi hguard
-      simpa [Nat.add_assoc] using this
-    · omega
-  case vc4 =>
-    rename_i pref cur suff hsplit st hinv hguard
-    obtain ⟨arr, mid⟩ := st
-    dsimp only at hinv hguard ⊢
-    obtain ⟨hpi, hbound⟩ := hinv
-    have hlen := congrArg List.length hsplit
-    simp [List.length_range'] at hlen
-    have hcur := range'_split_pos hsplit
-    subst hcur
-    simp only [List.length_append, List.length_cons, List.length_nil]
-    constructor
-    · have := partInv_step_ge hpi (by omega) hguard
-      simpa [Nat.add_assoc] using this
-    · omega
+  with finish [partInv_init, partInv_step_lt, partInv_step_ge, partInv_final,
+    range'_split_pos]
 
 /-! ## Quicksort -/
 
@@ -327,12 +301,7 @@ theorem qsortAux_spec (fuel : Nat) :
   | succ fuel ih =>
     intro a lo hi hhi hfuel
     rw [qsortAux]
-    vcgen [partition_spec, ih] with (try finish [qs_compose])
-    case vc1 =>
-      refine ⟨rfl, Array.Perm.refl _, fun k _ => rfl, fun p q h1 h2 h3 => ?_⟩
-      have hpq : p = q := by omega
-      rw [hpq]
-      exact Int.le_refl _
+    vcgen [partition_spec, ih] with finish [qs_compose, Array.Perm.refl]
 
 def quicksort (a : Array Int) : Id (Array Int) :=
   qsortAux a.size a 0 a.size

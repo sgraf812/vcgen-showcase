@@ -31,14 +31,15 @@ The grind framework:
   (`siftUpInv_swap`, `siftDownInv_swap`) whose case split (the swapped edge, the
   hole's children, the hole's siblings, everything else) is a `by_cases` skeleton
   with a `grind` leaf per case.
-* `smallerChild` returns the child to descend into; its two characterization lemmas
-  (`smallerChild_some`, `smallerChild_none`) are the whole story of the descent
-  guard, so the loop proof never re-splits the comparison logic.
+* `smallerChild` returns the child to descend into; `smallerChild_some` and
+  `smallerChild_none` characterize it, and `smallerChild_getD` keys those facts on the
+  loop guard `(smallerChild arr i).isSome`, so the sift-down step closes under `finish`.
+* The heapsort drain step speaks in the model vocabulary through three grind facts:
+  `drain_perm` for the permutation rotation `out ++ [m] ++ b ~ out ++ hp`,
+  `drain_pairwise` for the `Pairwise` extension of the sorted prefix, and
+  `push_perm_mem` for membership transport across the extracted minimum.
 
-Two verification conditions survive `finish` and are closed by named cases: the
-sift-down step (variant plus invariant through `Option.getD`) and the heapsort
-drain step (the permutation rotation `out ++ [m] ++ b ~ out ++ hp` and the
-`Pairwise` extension, which need explicit `List.Perm` surgery).
+Every verification condition closes under `finish`.
 -/
 
 open Std.Internal.Do Lean.Order
@@ -196,7 +197,7 @@ theorem siftUpInv_exit {arr : Array Int} {i : Nat}
     | .inl (arr, i) => SiftUpInv arr i ∧ arr.Perm (a.push x) ∧ arr.size = a.size + 1
     | .inr (arr, i) => IsHeap arr ∧ arr.Perm (a.push x) ∧ arr.size = a.size + 1
   | inv2 => fun s => s.2
-  with (try finish [siftUpInv_push, siftUpInv_swap, siftUpInv_exit, Array.Perm.refl])
+  with finish [siftUpInv_push, siftUpInv_swap, siftUpInv_exit, Array.Perm.refl]
 
 /-! ## Extraction -/
 
@@ -227,6 +228,19 @@ theorem smallerChild_isSome {a : Array Int} {i : Nat}
     (h : (smallerChild a i).isSome = true) :
     smallerChild a i = some ((smallerChild a i).getD 0) := by
   cases hc : smallerChild a i <;> simp_all
+
+/-- Characterization of the descent target keyed on `isSome`, so grind derives the
+target's bounds, parent, and minimality directly from the loop guard. -/
+theorem smallerChild_getD {a : Array Int} {i : Nat}
+    (h : (smallerChild a i).isSome = true) :
+    (smallerChild a i).getD 0 < a.size ∧
+      parent ((smallerChild a i).getD 0) = i ∧
+      i < (smallerChild a i).getD 0 ∧
+      a[(smallerChild a i).getD 0]! < a[i]! ∧
+      (∀ j, j < a.size → parent j = i → 0 < j → a[(smallerChild a i).getD 0]! ≤ a[j]!) :=
+  smallerChild_some (smallerChild_isSome h)
+
+grind_pattern smallerChild_getD => (smallerChild a i).isSome
 
 /-- The sift-down invariant: heap everywhere except the edges out of `i`, and the
 hole's parent bounds the hole's children. -/
@@ -346,21 +360,41 @@ set_option maxHeartbeats 1000000 in
     | .inr (arr, i) => IsHeap arr ∧
         arr.Perm ((a.swapIfInBounds 0 (a.size - 1)).pop) ∧ arr.size + 1 = a.size
   | inv2 => fun s => s.1.size - s.2
-  with (try finish [siftDownInv_start, siftDownInv_swap, siftDownInv_exit,
-    smallerChild_some, smallerChild_isSome, push_root_perm,
-    IsHeap.min_le_mem, Array.Perm.refl])
-  case vc4 =>
-    rename_i s hinv hg
-    obtain ⟨arr, i⟩ := s
-    dsimp only at hg hinv ⊢
-    simp only [meet_prop_eq_and]
-    obtain ⟨hsd, hperm, hsz⟩ := hinv
-    have hsc := smallerChild_isSome hg
-    obtain ⟨hcs, hpc, hic, hclt, hcmin⟩ := smallerChild_some hsc
-    exact ⟨by simp; omega, siftDownInv_swap hsd hsc,
-      perm_swapIfInBounds (by omega) hcs hperm, by simpa using hsz⟩
+  with finish [siftDownInv_start, siftDownInv_swap, siftDownInv_exit,
+    smallerChild_isSome, push_root_perm, IsHeap.min_le_mem, Array.Perm.refl]
 
 /-! ## Heapsort -/
+
+/-- The drain-step permutation: appending the extracted minimum to the sorted prefix
+and keeping the remaining heap permutes the same multiset. -/
+theorem drain_perm {out hp b : List Int} {m : Int} {a : List Int}
+    (hb : (b ++ [m]).Perm hp) (hperm : (out ++ hp).Perm a) :
+    ((out ++ [m]) ++ b).Perm a := by
+  rw [List.append_assoc]
+  exact (List.Perm.append_left out ((List.perm_append_comm).trans hb)).trans hperm
+
+grind_pattern drain_perm => ((out ++ [m]) ++ b).Perm a, (b ++ [m]).Perm hp
+
+/-- Membership transported across the drain step: the extracted minimum and every
+element of the remaining heap belong to the heap it came from. -/
+theorem push_perm_mem {b hp : List Int} {m : Int} (h : (b ++ [m]).Perm hp) :
+    m ∈ hp ∧ ∀ y ∈ b, y ∈ hp :=
+  ⟨h.mem_iff.mp (by simp), fun y hy => h.mem_iff.mp (List.mem_append_left _ hy)⟩
+
+grind_pattern push_perm_mem => (b ++ [m]).Perm hp
+
+/-- The drain step keeps the sorted prefix sorted: the extracted minimum bounds every
+element already drained. -/
+theorem drain_pairwise {out hp : List Int} {m : Int}
+    (hsort : out.Pairwise (· ≤ ·)) (hbound : ∀ x ∈ out, ∀ y ∈ hp, x ≤ y)
+    (hmem : m ∈ hp) :
+    (out ++ [m]).Pairwise (· ≤ ·) := by
+  rw [List.pairwise_append]
+  refine ⟨hsort, List.pairwise_singleton _ _, fun x hx y hy => ?_⟩
+  rw [List.mem_singleton.mp hy]
+  exact hbound x hx m hmem
+
+grind_pattern drain_pairwise => (out ++ [m]).Pairwise (· ≤ ·), m ∈ hp
 
 def heapsort (a : Array Int) : Id (Array Int) := do
   let mut hp := #[]
@@ -385,39 +419,8 @@ theorem heapsort_spec (a : Array Int) :
         out.toList.Pairwise (· ≤ ·) ∧ (∀ x ∈ out.toList, ∀ y ∈ hp.toList, x ≤ y)
     | .inr (hp, out) => out.toList.Perm a.toList ∧ out.toList.Pairwise (· ≤ ·)
   | inv3 => fun s => s.1.size
-  with (try finish [Array.perm_iff_toList_perm, List.perm_append_comm, Array.Perm.refl])
-  case vc2 =>
-    rename_i hp hinv
-    obtain ⟨hheap, hperm⟩ := hinv
-    exact ⟨hheap, by simpa using hperm, by simp, by simp⟩
-  case vc4 =>
-    rename_i h4 h3 st hinv hguard res hpost m b hres
-    subst hres
-    obtain ⟨hp, out⟩ := st
-    dsimp only at hguard hinv hpost ⊢
-    obtain ⟨hheap, hperm, hsort, hbound⟩ := hinv
-    obtain ⟨hbheap, hbperm, hbsize, hmin⟩ := hpost
-    have hb : (b.toList ++ [m]).Perm hp.toList := by
-      simpa using Array.perm_iff_toList_perm.mp hbperm
-    have hmb : ([m] ++ b.toList).Perm hp.toList :=
-      (List.perm_append_comm).trans hb
-    have hmem : ∀ y ∈ b.toList, y ∈ hp.toList := fun y hy =>
-      hb.mem_iff.mp (List.mem_append_left _ hy)
-    have hm : m ∈ hp.toList := hb.mem_iff.mp (by simp)
-    simp only [meet_prop_eq_and]
-    refine ⟨by simp; omega, hbheap, ?_, ?_, ?_⟩
-    · rw [Array.toList_push, List.append_assoc]
-      exact (hmb.append_left out.toList).trans hperm
-    · rw [Array.toList_push, List.pairwise_append]
-      exact ⟨hsort, by simp, fun x hx y hy => by
-        have hym : y = m := by simpa using hy
-        rw [hym]; exact hbound x hx m hm⟩
-    · intro x hx y hy
-      rw [Array.toList_push] at hx
-      rcases List.mem_append.mp hx with hx | hx
-      · exact hbound x hx y (hmem y hy)
-      · have hxm : x = m := by simpa using hx
-        rw [hxm]; exact hmin y (hmem y hy)
+  with finish (instances := 5000) [Array.perm_iff_toList_perm, Array.Perm.refl,
+    List.Pairwise.nil, List.mem_singleton]
 
 end Heap
 

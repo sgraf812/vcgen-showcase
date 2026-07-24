@@ -128,7 +128,7 @@ def union (uf : Array Nat) (x y : Nat) : Id (Array Nat) := do
     | .inl i => rootOf uf i = rootOf uf x ∧ i < uf.size
     | .inr i => i = rootOf uf x ∧ uf[i]! = i ∧ i < uf.size
   | inv2 => fun s => s
-  with (try finish [rootOf_step, rootOf_root])
+  with finish [rootOf_step, rootOf_root]
 
 /-! ## Union -/
 
@@ -221,7 +221,7 @@ theorem union_spec (uf : Array Nat) (x y : Nat) (hwf : WF uf)
     (hx : x < uf.size) (hy : y < uf.size) :
     ⦃ True ⦄ union uf x y
     ⦃ fun r => UnionPost uf x y r ⦄ := by
-  vcgen [union] with (try finish [union_post])
+  vcgen [union] with finish [union_post]
 
 /-! Sanity tests. `native_decide`: the `while` loop is an opaque fixpoint. -/
 example : (find #[0, 1, 2, 3, 4, 5] 3).run = 3 := by native_decide

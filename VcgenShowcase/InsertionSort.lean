@@ -16,11 +16,15 @@ sits at start plus prefix length, needed because the outer range starts at `1` a
 the position equation for a non-zero start is not derivable by e-matching) and
 `perm_swapIfInBounds` (threading the permutation through a swap).
 
-One verification condition survives `finish`: the loop-exit step, whose content is
-the transitivity chain `arr[p]! ≤ arr[j-1]! ≤ arr[j]!` closing the gap at the
-insertion point. grind does not find the chain even with `Int.le_trans` as a seed;
-`case vc6` closes it in fifteen lines. `with (try finish)` plus a named `case` is
-the escape hatch for exactly this situation.
+One verification condition survives `finish`: the loop-exit step at the insertion
+point, where sortedness extends across `arr[j-1]! ≤ arr[j]!`. `case vc6` supplies
+grind the invariant instantiated at `q` and its predecessor `q-1`, and grind closes
+the arithmetic. `with (try finish)` plus a named `case` is the escape hatch for
+exactly this situation. This is the direct, easy proof: handing grind the two
+instantiations it cannot form on its own, since `arr[q-1]!` is not a ground term
+until `q = j` is derived. Folding the inner sortedness into a named predicate with
+a `@[grind]` lemma that exposes the predecessor step would let `finish` close this
+case unaided, at the cost of a heavier invariant.
 
 There is no `Manual` namespace here: the same-base baseline for this program is the
 literal composition of the taxes demonstrated separately in `FindPair` (nested
@@ -62,23 +66,11 @@ theorem insertionSort_spec (a : Array Int) :
   case vc6 =>
     rename_i s hinv hguard
     obtain ⟨arr, j⟩ := s
-    dsimp only at hguard ⊢
     obtain ⟨hj, hcur, hperm, hsz, hI⟩ := hinv
-    refine ⟨hcur, hperm, hsz, ?_⟩
-    intro p q hpq hq
-    by_cases hqj : q = j
-    · subst hqj
-      rcases Nat.eq_zero_or_pos q with hq0 | hpos
-      · have hp0 : p = 0 := by omega
-        rw [hp0, hq0]
-        exact Int.le_refl _
-      · have hge : ¬ ((arr[q]! : Int) < arr[q - 1]!) := fun h => hguard ⟨hpos, h⟩
-        by_cases hpj : p = q
-        · rw [hpj]
-          exact Int.le_refl _
-        · have h1 : (arr[p]! : Int) ≤ arr[q - 1]! := hI p (q - 1) (by omega) (by omega) (by omega)
-          omega
-    · exact hI p q hpq hq hqj
+    refine ⟨hcur, hperm, hsz, fun p q hpq hq => ?_⟩
+    have := hI p (q - 1)
+    have := hI p q
+    grind
 
 /-! Sanity tests. -/
 -- `native_decide`: the program does not reduce in the kernel (`repeatM.impl` is opaque).
