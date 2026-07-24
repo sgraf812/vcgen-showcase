@@ -39,12 +39,12 @@ namespace Manual
 /-! The same theorem without `vcgen`, against the `repeatM` fixpoint that `while`
 elaborates to (via `Lean.Loop.forIn`). The loop body is abstracted as `F` together
 with its two reduction equations, and the induction is on explicit fuel `n - r`,
-unfolding the fixpoint once per step with `repeatM_eq_of_monadTail`.
+unfolding the fixpoint once per step with `repeatM.Internal.eq_of_monadTail`.
 
 Places to get stuck, each absent from the `vcgen` proof:
 
 1. Finding the unfolding lemma at all: `repeatM` is opaque; its one sanctioned
-   unfolding `repeatM_eq_of_monadTail` lives in `Init.Internal.Order.While` behind a
+   unfolding `repeatM.Internal.eq_of_monadTail` lives in `Init.Internal.Order.While` behind a
    `MonadTail` instance, and nothing in the goal points there.
 2. The variant must become explicit fuel, with the invariant `r * r ≤ n` and the
    fuel bound `n - r ≤ fuel` threaded through every case; `vcgen` takes the variant
@@ -71,13 +71,13 @@ private theorem loop_aux (n fuel : Nat) (F : Nat → Id (Nat ⊕ Nat))
   induction fuel with
   | zero =>
     intro r hfuel hr
-    rw [repeatM_eq_of_monadTail]
+    rw [repeatM.Internal.eq_of_monadTail]
     have hstop : ¬(r + 1) * (r + 1) ≤ n := by grind
     simp only [repeatM.body, hdone r hstop, pure_bind, Id.run_pure]
     grind
   | succ fuel ih =>
     intro r hfuel hr
-    rw [repeatM_eq_of_monadTail]
+    rw [repeatM.Internal.eq_of_monadTail]
     by_cases h : (r + 1) * (r + 1) ≤ n
     · simp only [repeatM.body, hyield r h, pure_bind]
       exact ih (r + 1) (by grind) (by grind)

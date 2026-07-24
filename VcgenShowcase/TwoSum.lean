@@ -96,7 +96,7 @@ private theorem loop_aux (a : Array Int) (t : Int)
   induction fuel with
   | zero =>
     intro r lo hi hfuel hbound hconf
-    rw [repeatM_eq_of_monadTail]
+    rw [repeatM.Internal.eq_of_monadTail]
     have hguard : ¬ lo < hi := by omega
     simp only [repeatM.body, hstop r lo hi hguard, pure_bind]
     intro i j hij hj hsum
@@ -104,7 +104,7 @@ private theorem loop_aux (a : Array Int) (t : Int)
     omega
   | succ fuel ih =>
     intro r lo hi hfuel hbound hconf
-    rw [repeatM_eq_of_monadTail]
+    rw [repeatM.Internal.eq_of_monadTail]
     by_cases hguard : lo < hi
     · by_cases hsum : a[lo]! + a[hi]! = t
       · simp only [repeatM.body, hhit r lo hi hguard hsum, pure_bind]

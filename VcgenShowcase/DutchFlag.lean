@@ -152,14 +152,14 @@ private theorem loop_aux (a : Array Int)
   | zero =>
     intro arr lo mid hi hfuel hinv
     have hguard : ¬ mid < hi := by omega
-    rw [repeatM_eq_of_monadTail]
+    rw [repeatM.Internal.eq_of_monadTail]
     simp only [repeatM.body, hstop arr lo mid hi hguard, pure_bind]
     refine ⟨hinv, ?_⟩
     obtain ⟨-, -, -, h4, -⟩ := hinv
     omega
   | succ fuel ih =>
     intro arr lo mid hi hfuel hinv
-    rw [repeatM_eq_of_monadTail]
+    rw [repeatM.Internal.eq_of_monadTail]
     by_cases hguard : mid < hi
     · by_cases hneg' : (arr[mid]! : Int) < 0
       · simp only [repeatM.body, hneg arr lo mid hi hguard hneg', pure_bind]

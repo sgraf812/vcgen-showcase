@@ -21,7 +21,7 @@ Main results:
 * `roundtrip`: for `NonnegLits e`, running `parseExpr` on `printExpr e ++ rest`
   returns `e` and leaves exactly `rest`, stated as a `Triple` per grammar level and
   proved by a single induction over `e`. Each case is a direct application of the
-  composition lemmas below; every lemma is a one-line `rw; vcgen; grind`.
+  composition lemmas below; every lemma is a one-line `rw; vcgen … with finish`.
 * `parse_print_run` and `compile_correct_run`: pure equations extracted from the
   triples via `Triple.le_wp`, the transformer `wp_apply_eq` simp set, and
   `Id.of_wp_run_eq`; the error branch is refuted by reducing `EPost.Cons.pushExcept`
@@ -75,8 +75,7 @@ def expect (c : Char) : ParserM Unit := do
     ⦃ fun s => s = s0 ⦄
     expect c
     ⦃ fun _ s => s = s0.tail ⦄ := by
-  vcgen [expect]
-  all_goals grind
+  vcgen [expect] with finish
 
 /-- The numeric value of a digit character. -/
 def digitVal (d : Char) : Nat := d.toNat - 48
@@ -123,9 +122,8 @@ def parseNat (fuel : Nat) : ParserM Nat := do
   induction fuel generalizing s0 acc with
   | zero => omega
   | succ fuel ih =>
-    simp only [parseNatAux]
-    vcgen (errorOnMissingSpec := false)
-    all_goals grind [List.takeWhile_cons, List.dropWhile_cons, List.takeWhile_nil, List.dropWhile_nil]
+    vcgen [parseNatAux, ih] with
+      finish [List.takeWhile_cons, List.dropWhile_cons, List.takeWhile_nil, List.dropWhile_nil]
 
 /-- `parseNat` on input starting with a digit parses the leading digit run. -/
 @[spec] theorem parseNat_spec (s0 : List Char) (fuel : Nat)
@@ -135,8 +133,7 @@ def parseNat (fuel : Nat) : ParserM Nat := do
     parseNat fuel
     ⦃ fun r s => r = valDigits 0 (s0.takeWhile Char.isDigit) ∧
         s = s0.dropWhile Char.isDigit ⦄ := by
-  vcgen [parseNat]
-  all_goals grind [List.takeWhile_cons, List.dropWhile_cons]
+  vcgen [parseNat] with finish [List.takeWhile_cons, List.dropWhile_cons]
 
 /-! ## Printing numbers -/
 
@@ -331,15 +328,13 @@ theorem exprTail_stop (rest : List Char) (fuel : Nat) (acc : Expr)
     (h : rest.head? ≠ some '+') :
     ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄ := by
   rw [parseExprTail]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
+  vcgen (errorOnMissingSpec := false) with finish
 
 theorem termTail_stop (rest : List Char) (fuel : Nat) (acc : Expr)
     (h : rest.head? ≠ some '*') :
     ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄ := by
   rw [parseTermTail]
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind
+  vcgen (errorOnMissingSpec := false) with finish
 
 theorem plus_not_digit (c : Char) : c = '+' → c.isDigit = false := by rintro rfl; decide
 theorem star_not_digit (c : Char) : c = '*' → c.isDigit = false := by rintro rfl; decide
@@ -362,46 +357,46 @@ theorem parseTerm_then (s0 rest : List Char) (t : Expr) (fuel : Nat)
     (hFi : ⦃ fun s => s = s0 ⦄ parseFactor fuel ⦃ fun r s => r = t ∧ s = rest ⦄)
     (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseTerm fuel ⦃ fun r s => r = t ∧ s = rest ⦄ := by
-  rw [parseTerm]; vcgen (errorOnMissingSpec := false) [hFi, hstop] <;> grind
+  rw [parseTerm]; vcgen [hFi, hstop] with finish
 
 theorem parseExpr_then (s0 rest : List Char) (t : Expr) (fuel : Nat)
     (hTi : ⦃ fun s => s = s0 ⦄ parseTerm fuel ⦃ fun r s => r = t ∧ s = rest ⦄)
     (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseExpr fuel ⦃ fun r s => r = t ∧ s = rest ⦄ := by
-  rw [parseExpr]; vcgen (errorOnMissingSpec := false) [hTi, hstop] <;> grind
+  rw [parseExpr]; vcgen [hTi, hstop] with finish
 
 theorem parseExprTail_step (b : Expr) (mid rest : List Char) (fuel : Nat)
     (hTb : ⦃ fun s => s = mid ⦄ parseTerm fuel ⦃ fun r s => r = b ∧ s = rest ⦄)
     (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseExprTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
     ∀ acc, ⦃ fun s => s = '+' :: mid ⦄ parseExprTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.add acc b ∧ s = rest ⦄ := by
-  intro acc; rw [parseExprTail]; vcgen (errorOnMissingSpec := false) [hTb, hstop] <;> grind
+  intro acc; rw [parseExprTail]; vcgen [hTb, hstop] with finish
 
 theorem parseTermTail_step (b : Expr) (mid rest : List Char) (fuel : Nat)
     (hFb : ⦃ fun s => s = mid ⦄ parseFactor fuel ⦃ fun r s => r = b ∧ s = rest ⦄)
     (hstop : ∀ acc, ⦃ fun s => s = rest ⦄ parseTermTail fuel acc ⦃ fun r s => r = acc ∧ s = rest ⦄) :
     ∀ acc, ⦃ fun s => s = '*' :: mid ⦄ parseTermTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.mul acc b ∧ s = rest ⦄ := by
-  intro acc; rw [parseTermTail]; vcgen (errorOnMissingSpec := false) [hFb, hstop] <;> grind
+  intro acc; rw [parseTermTail]; vcgen [hFb, hstop] with finish
 
 theorem parseExpr_seq (a b : Expr) (s0 mid rest : List Char) (fuel : Nat)
     (hTa : ⦃ fun s => s = s0 ⦄ parseTerm (fuel + 1) ⦃ fun r s => r = a ∧ s = '+' :: mid ⦄)
     (hstep : ∀ acc, ⦃ fun s => s = '+' :: mid ⦄ parseExprTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.add acc b ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseExpr (fuel + 1) ⦃ fun r s => r = Expr.add a b ∧ s = rest ⦄ := by
-  rw [parseExpr]; vcgen (errorOnMissingSpec := false) [hTa, hstep] <;> grind
+  rw [parseExpr]; vcgen [hTa, hstep] with finish
 
 theorem parseTerm_seq (a b : Expr) (s0 mid rest : List Char) (fuel : Nat)
     (hFa : ⦃ fun s => s = s0 ⦄ parseFactor (fuel + 1) ⦃ fun r s => r = a ∧ s = '*' :: mid ⦄)
     (hstep : ∀ acc, ⦃ fun s => s = '*' :: mid ⦄ parseTermTail (fuel + 1) acc
       ⦃ fun r s => r = Expr.mul acc b ∧ s = rest ⦄) :
     ⦃ fun s => s = s0 ⦄ parseTerm (fuel + 1) ⦃ fun r s => r = Expr.mul a b ∧ s = rest ⦄ := by
-  rw [parseTerm]; vcgen (errorOnMissingSpec := false) [hFa, hstep] <;> grind
+  rw [parseTerm]; vcgen [hFa, hstep] with finish
 
 theorem parseFactor_group (e : Expr) (inner rest : List Char) (fuel : Nat)
     (hEi : ⦃ fun s => s = inner ⦄ parseExpr fuel ⦃ fun r s => r = e ∧ s = ')' :: rest ⦄) :
     ⦃ fun s => s = '(' :: inner ⦄ parseFactor (fuel + 1) ⦃ fun r s => r = e ∧ s = rest ⦄ := by
-  rw [parseFactor]; vcgen (errorOnMissingSpec := false) [hEi] <;> grind
+  rw [parseFactor]; vcgen [hEi] with finish
 
 private theorem core_F_num (n : Int) (hnn : 0 ≤ n) (rest : List Char) (fuel : Nat)
     (hdig : ∀ c, rest.head? = some c → ¬ c.isDigit)
@@ -416,8 +411,7 @@ private theorem core_F_num (n : Int) (hnn : 0 ≤ n) (rest : List Char) (fuel : 
   rw [hnds] at htake hdrop hfuel ⊢
   rw [parseFactor]
   refine ⟨?_⟩
-  vcgen (errorOnMissingSpec := false)
-  all_goals grind [Int.toNat_of_nonneg]
+  vcgen (errorOnMissingSpec := false) with finish [Int.toNat_of_nonneg]
 
 theorem not_digit_head_plus (mid : List Char) :
     ∀ c, ('+' :: mid).head? = some c → ¬ c.isDigit := by
